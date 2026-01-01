@@ -1308,11 +1308,13 @@ const Certifications = () => {
     const [loading, setLoading] = useState(true);
     const [activeTab, setActiveTab] = useState('list');
     const [currentPage, setCurrentPage] = useState(1);
+    const [yearFilter, setYearFilter] = useState(new Date().getFullYear().toString());
+    const [quarterFilter, setQuarterFilter] = useState('');
     const { user } = useAuth();
     const itemsPerPage = 10;
 
     const [formData, setFormData] = useState({
-        planning_year: '2025',
+        planning_year: new Date().getFullYear().toString(),
         planning_quarter: 'Q1',
         name: '',
         certification: '',
@@ -1327,18 +1329,21 @@ const Certifications = () => {
 
     useEffect(() => {
         loadData();
-    }, []);
+    }, [yearFilter, quarterFilter]);
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [activeTab]);
+    }, [activeTab, yearFilter, quarterFilter]);
 
     const loadData = async () => {
         try {
-            const currentYear = new Date().getFullYear();
+            const params = {};
+            if (yearFilter) params.planning_year = yearFilter;
+            if (quarterFilter) params.planning_quarter = quarterFilter;
+            
             const [certsRes, statsRes, empCertsRes, employeesRes] = await Promise.all([
-                api.certifications.getAll(),
-                api.certifications.getStats({ year: currentYear }),
+                api.certifications.getAll(params),
+                api.certifications.getStats({ year: yearFilter || new Date().getFullYear() }),
                 api.employeeCertifications.getExpiring(),
                 api.employees.getAll(),
             ]);
@@ -1425,7 +1430,7 @@ const Certifications = () => {
 
     const resetForm = () => {
         setFormData({
-            planning_year: '2025',
+            planning_year: new Date().getFullYear().toString(),
             planning_quarter: 'Q1',
             name: '',
             certification: '',
@@ -1487,6 +1492,29 @@ const Certifications = () => {
                     Plans ({certs.filter(c => c.status_final === 'On Progress').length})
                 </button>
             </div>
+
+            {(activeTab === 'list' || activeTab === 'plans') && (
+                <div className="filters">
+                    <div className="filter-item">
+                        <label className="form-label">Year</label>
+                        <select className="form-select" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
+                            <option value="2024">2024</option>
+                            <option value="2025">2025</option>
+                            <option value="2026">2026</option>
+                        </select>
+                    </div>
+                    <div className="filter-item">
+                        <label className="form-label">Quarter</label>
+                        <select className="form-select" value={quarterFilter} onChange={(e) => setQuarterFilter(e.target.value)}>
+                            <option value="">All Quarters</option>
+                            <option value="Q1">Q1</option>
+                            <option value="Q2">Q2</option>
+                            <option value="Q3">Q3</option>
+                            <option value="Q4">Q4</option>
+                        </select>
+                    </div>
+                </div>
+            )}
 
             {activeTab === 'list' && (
                 <div className="card">
@@ -1746,6 +1774,7 @@ const Certifications = () => {
 };
 
 // 2. PROJECTS COMPONENT - Fixed dengan pagination 10 items/page
+// 1. PROJECTS COMPONENT - dengan Year & Quarter Filter (default: current year, all quarter)
 const Projects = () => {
     const [projects, setProjects] = useState([]);
     const [showModal, setShowModal] = useState(false);
@@ -1753,6 +1782,8 @@ const Projects = () => {
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
     const [typeFilter, setTypeFilter] = useState('');
+    const [yearFilter, setYearFilter] = useState(new Date().getFullYear().toString());
+    const [quarterFilter, setQuarterFilter] = useState('');
     const { user } = useAuth();
     const itemsPerPage = 10;
 
@@ -1764,21 +1795,23 @@ const Projects = () => {
         end_date: '',
         status: 'On Progress',
         quarter: 'Q1',
-        year: '2025',
+        year: new Date().getFullYear().toString(),
     });
 
     useEffect(() => {
         loadProjects();
-    }, [typeFilter]);
+    }, [typeFilter, yearFilter, quarterFilter]);
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [typeFilter]);
+    }, [typeFilter, yearFilter, quarterFilter]);
 
     const loadProjects = async () => {
         try {
             const params = {};
             if (typeFilter) params.type = typeFilter;
+            if (yearFilter) params.year = yearFilter;
+            if (quarterFilter) params.quarter = quarterFilter;
             const response = await api.projects.getAll(params);
             setProjects(response.data);
         } catch (err) {
@@ -1824,7 +1857,7 @@ const Projects = () => {
             end_date: '',
             status: 'On Progress',
             quarter: 'Q1',
-            year: '2025',
+            year: new Date().getFullYear().toString(),
         });
         setEditing(null);
     };
@@ -1856,7 +1889,25 @@ const Projects = () => {
 
             <div className="filters">
                 <div className="filter-item">
-                    <label className="form-label">Filter by Type</label>
+                    <label className="form-label">Year</label>
+                    <select className="form-select" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                </div>
+                <div className="filter-item">
+                    <label className="form-label">Quarter</label>
+                    <select className="form-select" value={quarterFilter} onChange={(e) => setQuarterFilter(e.target.value)}>
+                        <option value="">All Quarters</option>
+                        <option value="Q1">Q1</option>
+                        <option value="Q2">Q2</option>
+                        <option value="Q3">Q3</option>
+                        <option value="Q4">Q4</option>
+                    </select>
+                </div>
+                <div className="filter-item">
+                    <label className="form-label">Type</label>
                     <select className="form-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
                         <option value="">All Types</option>
                         <option value="Implementasi">Implementasi</option>
@@ -1982,12 +2033,15 @@ const Projects = () => {
     );
 };
 
+// 2. OPPORTUNITIES COMPONENT - dengan Year & Quarter Filter (default: current year, all quarter)
 const Opportunities = () => {
     const [opptys, setOpptys] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [editing, setEditing] = useState(null);
     const [loading, setLoading] = useState(true);
     const [currentPage, setCurrentPage] = useState(1);
+    const [yearFilter, setYearFilter] = useState(new Date().getFullYear().toString());
+    const [quarterFilter, setQuarterFilter] = useState('');
     const { user } = useAuth();
     const itemsPerPage = 10;
 
@@ -1998,16 +2052,23 @@ const Opportunities = () => {
         progress: '',
         actual_status: 'Open',
         quarter: 'Q1',
-        year: '2025',
+        year: new Date().getFullYear().toString(),
     });
 
     useEffect(() => {
         loadOpportunities();
-    }, []);
+    }, [yearFilter, quarterFilter]);
+
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [yearFilter, quarterFilter]);
 
     const loadOpportunities = async () => {
         try {
-            const response = await api.opportunities.getAll();
+            const params = {};
+            if (yearFilter) params.year = yearFilter;
+            if (quarterFilter) params.quarter = quarterFilter;
+            const response = await api.opportunities.getAll(params);
             setOpptys(response.data);
         } catch (err) {
             console.error('Error:', err);
@@ -2051,7 +2112,7 @@ const Opportunities = () => {
             progress: '',
             actual_status: 'Open',
             quarter: 'Q1',
-            year: '2025',
+            year: new Date().getFullYear().toString(),
         });
         setEditing(null);
     };
@@ -2079,6 +2140,27 @@ const Opportunities = () => {
                         + Add Opportunity
                     </button>
                 )}
+            </div>
+
+            <div className="filters">
+                <div className="filter-item">
+                    <label className="form-label">Year</label>
+                    <select className="form-select" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
+                        <option value="2024">2024</option>
+                        <option value="2025">2025</option>
+                        <option value="2026">2026</option>
+                    </select>
+                </div>
+                <div className="filter-item">
+                    <label className="form-label">Quarter</label>
+                    <select className="form-select" value={quarterFilter} onChange={(e) => setQuarterFilter(e.target.value)}>
+                        <option value="">All Quarters</option>
+                        <option value="Q1">Q1</option>
+                        <option value="Q2">Q2</option>
+                        <option value="Q3">Q3</option>
+                        <option value="Q4">Q4</option>
+                    </select>
+                </div>
             </div>
 
             <div className="card">
