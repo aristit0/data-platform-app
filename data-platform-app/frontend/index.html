@@ -658,6 +658,14 @@
                 delete: (id) => axios.delete(`${API_BASE_URL}/employees/${id}`),
             },
 
+            employeeCertifications: {
+                getAll: (params) => axios.get(`${API_BASE_URL}/employee-certifications`, { params }),
+                getExpiring: () => axios.get(`${API_BASE_URL}/employee-certifications/expiring`),
+                create: (data) => axios.post(`${API_BASE_URL}/employee-certifications`, data),
+                update: (id, data) => axios.put(`${API_BASE_URL}/employee-certifications/${id}`, data),
+                delete: (id) => axios.delete(`${API_BASE_URL}/employee-certifications/${id}`),
+            },
+
             projects: {
                 getAll: (params) => axios.get(`${API_BASE_URL}/projects`, { params }),
                 create: (data) => axios.post(`${API_BASE_URL}/projects`, data),
@@ -1260,473 +1268,29 @@
             );
         };
 
-        // Continuation will be in next part due to length...
-        // I'll create separate components for Projects, Certifications, Product Assignment, Opportunities, and Mini POCs
-
-// ========================================
-// COPY KODE INI DAN PASTE KE index.html 
-// SEBELUM "// Main App Component"
-// ========================================
-
-// PROJECTS COMPONENT (Fitur #4 - dengan pagination)
-const Projects = () => {
-    const [projects, setProjects] = useState([]);
-    const [showModal, setShowModal] = useState(false);
-    const [editing, setEditing] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [yearFilter, setYearFilter] = useState('2025');
-    const [quarterFilter, setQuarterFilter] = useState('');
-    const { user } = useAuth();
-    const itemsPerPage = 10;
-
-    const [formData, setFormData] = useState({
-        type: 'Implementasi',
-        client: '',
-        project_name: '',
-        duration: '',
-        end_date: '',
-        status: 'On Progress',
-        quarter: 'Q1',
-        year: '2025',
-    });
-
-    useEffect(() => {
-        loadProjects();
-    }, [yearFilter, quarterFilter]);
-
-    const loadProjects = async () => {
-        try {
-            const params = { year: yearFilter };
-            if (quarterFilter) params.quarter = quarterFilter;
-            const response = await api.projects.getAll(params);
-            setProjects(response.data);
-        } catch (err) {
-            console.error('Error loading projects:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            if (editing) {
-                await api.projects.update(editing.project_id, formData);
-            } else {
-                await api.projects.create(formData);
-            }
-            setShowModal(false);
-            resetForm();
-            loadProjects();
-        } catch (err) {
-            alert('Failed to save project');
-        }
-    };
-
-    const handleDelete = async (id) => {
-        if (window.confirm('Are you sure?')) {
-            try {
-                await api.projects.delete(id);
-                loadProjects();
-            } catch (err) {
-                alert('Failed to delete project');
-            }
-        }
-    };
-
-    const resetForm = () => {
-        setFormData({
-            type: 'Implementasi',
-            client: '',
-            project_name: '',
-            duration: '',
-            end_date: '',
-            status: 'On Progress',
-            quarter: 'Q1',
-            year: '2025',
-        });
-        setEditing(null);
-    };
-
-    const handleEdit = (project) => {
-        setEditing(project);
-        setFormData(project);
-        setShowModal(true);
-    };
-
-    // Pagination
-    const indexOfLast = currentPage * itemsPerPage;
-    const indexOfFirst = indexOfLast - itemsPerPage;
-    const currentItems = projects.slice(indexOfFirst, indexOfLast);
-    const totalPages = Math.ceil(projects.length / itemsPerPage);
-
-    if (loading) return <div className="loading"><div className="spinner"></div><p>Loading...</p></div>;
-
-    return (
-        <div>
-            <div className="header">
-                <h2>Projects</h2>
-                {user?.role === 'admin' && (
-                    <button className="btn btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
-                        + Add Project
-                    </button>
-                )}
-            </div>
-
-            <div className="filters">
-                <div className="filter-item">
-                    <label className="form-label">Year</label>
-                    <select className="form-select" value={yearFilter} onChange={(e) => setYearFilter(e.target.value)}>
-                        <option value="2024">2024</option>
-                        <option value="2025">2025</option>
-                        <option value="2026">2026</option>
-                    </select>
-                </div>
-                <div className="filter-item">
-                    <label className="form-label">Quarter</label>
-                    <select className="form-select" value={quarterFilter} onChange={(e) => setQuarterFilter(e.target.value)}>
-                        <option value="">All Quarters</option>
-                        <option value="Q1">Q1</option>
-                        <option value="Q2">Q2</option>
-                        <option value="Q3">Q3</option>
-                        <option value="Q4">Q4</option>
-                    </select>
-                </div>
-            </div>
-
-            <div className="card">
-                <div className="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Type</th>
-                                <th>Client</th>
-                                <th>Project Name</th>
-                                <th>Duration</th>
-                                <th>End Date</th>
-                                <th>Status</th>
-                                <th>Quarter</th>
-                                {user?.role === 'admin' && <th>Actions</th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {currentItems.map((proj) => (
-                                <tr key={proj.project_id}>
-                                    <td>{proj.type}</td>
-                                    <td>{proj.client}</td>
-                                    <td>{proj.project_name}</td>
-                                    <td>{proj.duration}</td>
-                                    <td>{proj.end_date}</td>
-                                    <td><span className={`badge badge-${proj.status === 'On Progress' ? 'success' : 'info'}`}>{proj.status}</span></td>
-                                    <td>{proj.quarter} {proj.year}</td>
-                                    {user?.role === 'admin' && (
-                                        <td>
-                                            <div className="action-buttons">
-                                                <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(proj)}>Edit</button>
-                                                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(proj.project_id)}>Delete</button>
-                                            </div>
-                                        </td>
-                                    )}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                {totalPages > 1 && (
-                    <div className="pagination">
-                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                            Previous
-                        </button>
-                        <span className="page-info">Page {currentPage} of {totalPages}</span>
-                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-                            Next
-                        </button>
-                    </div>
-                )}
-            </div>
-
-            {showModal && (
-                <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3 className="modal-title">{editing ? 'Edit Project' : 'Add Project'}</h3>
-                            <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
-                        </div>
-                        <form onSubmit={handleSubmit}>
-                            <div className="form-group">
-                                <label className="form-label">Type</label>
-                                <select className="form-select" value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})}>
-                                    <option value="Implementasi">Implementasi</option>
-                                    <option value="Maintenance">Maintenance</option>
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Client</label>
-                                <input className="form-input" value={formData.client} onChange={(e) => setFormData({...formData, client: e.target.value})} required />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Project Name</label>
-                                <input className="form-input" value={formData.project_name} onChange={(e) => setFormData({...formData, project_name: e.target.value})} required />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Duration</label>
-                                <input className="form-input" value={formData.duration} onChange={(e) => setFormData({...formData, duration: e.target.value})} />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">End Date</label>
-                                <input type="date" className="form-input" value={formData.end_date} onChange={(e) => setFormData({...formData, end_date: e.target.value})} />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Status</label>
-                                <select className="form-select" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})}>
-                                    <option value="On Progress">On Progress</option>
-                                    <option value="Done">Done</option>
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Quarter</label>
-                                <select className="form-select" value={formData.quarter} onChange={(e) => setFormData({...formData, quarter: e.target.value})}>
-                                    <option value="Q1">Q1</option>
-                                    <option value="Q2">Q2</option>
-                                    <option value="Q3">Q3</option>
-                                    <option value="Q4">Q4</option>
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Year</label>
-                                <input type="number" className="form-input" value={formData.year} onChange={(e) => setFormData({...formData, year: e.target.value})} required />
-                            </div>
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save</button>
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Cancel</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
-// OPPORTUNITIES COMPONENT (Fitur #6)
-const Opportunities = () => {
-    const [opptys, setOpptys] = useState([]);
-    const [showModal, setShowModal] = useState(false);
-    const [editing, setEditing] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [statusFilter, setStatusFilter] = useState('');
-    const { user } = useAuth();
-
-    const [formData, setFormData] = useState({
-        type: 'Oppty',
-        client: '',
-        project_name: '',
-        progress: '',
-        actual_status: 'Open',
-        quarter: 'Q1',
-        year: '2025',
-    });
-
-    useEffect(() => {
-        loadOpportunities();
-    }, [statusFilter]);
-
-    const loadOpportunities = async () => {
-        try {
-            const params = {};
-            if (statusFilter) params.actual_status = statusFilter;
-            const response = await api.opportunities.getAll(params);
-            setOpptys(response.data);
-        } catch (err) {
-            console.error('Error:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            if (editing) {
-                await api.opportunities.update(editing.oppty_id, formData);
-            } else {
-                await api.opportunities.create(formData);
-            }
-            setShowModal(false);
-            resetForm();
-            loadOpportunities();
-        } catch (err) {
-            alert('Failed to save opportunity');
-        }
-    };
-
-    const handleDelete = async (id) => {
-        if (window.confirm('Are you sure?')) {
-            try {
-                await api.opportunities.delete(id);
-                loadOpportunities();
-            } catch (err) {
-                alert('Failed to delete');
-            }
-        }
-    };
-
-    const resetForm = () => {
-        setFormData({
-            type: 'Oppty',
-            client: '',
-            project_name: '',
-            progress: '',
-            actual_status: 'Open',
-            quarter: 'Q1',
-            year: '2025',
-        });
-        setEditing(null);
-    };
-
-    const handleEdit = (oppty) => {
-        setEditing(oppty);
-        setFormData(oppty);
-        setShowModal(true);
-    };
-
-    if (loading) return <div className="loading"><div className="spinner"></div><p>Loading...</p></div>;
-
-    return (
-        <div>
-            <div className="header">
-                <h2>Opportunities</h2>
-                {user?.role === 'admin' && (
-                    <button className="btn btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
-                        + Add Opportunity
-                    </button>
-                )}
-            </div>
-
-            <div className="filters">
-                <div className="filter-item">
-                    <label className="form-label">Status</label>
-                    <select className="form-select" value={statusFilter} onChange={(e) => setStatusFilter(e.target.value)}>
-                        <option value="">All Status</option>
-                        <option value="Open">Open</option>
-                        <option value="Lose">Lose</option>
-                        <option value="Drop">Drop</option>
-                    </select>
-                </div>
-            </div>
-
-            <div className="card">
-                <div className="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Client</th>
-                                <th>Project Name</th>
-                                <th>Progress</th>
-                                <th>Status</th>
-                                <th>Quarter</th>
-                                {user?.role === 'admin' && <th>Actions</th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {opptys.map((opp) => (
-                                <tr key={opp.oppty_id}>
-                                    <td>{opp.client}</td>
-                                    <td>{opp.project_name}</td>
-                                    <td>{opp.progress}</td>
-                                    <td>
-                                        <span className={`badge badge-${
-                                            opp.actual_status === 'Open' ? 'success' : 
-                                            opp.actual_status === 'Lose' ? 'danger' : 'warning'
-                                        }`}>
-                                            {opp.actual_status}
-                                        </span>
-                                    </td>
-                                    <td>{opp.quarter} {opp.year}</td>
-                                    {user?.role === 'admin' && (
-                                        <td>
-                                            <div className="action-buttons">
-                                                <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(opp)}>Edit</button>
-                                                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(opp.oppty_id)}>Delete</button>
-                                            </div>
-                                        </td>
-                                    )}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-
-            {showModal && (
-                <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3 className="modal-title">{editing ? 'Edit Opportunity' : 'Add Opportunity'}</h3>
-                            <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
-                        </div>
-                        <form onSubmit={handleSubmit}>
-                            <div className="form-group">
-                                <label className="form-label">Client</label>
-                                <input className="form-input" value={formData.client} onChange={(e) => setFormData({...formData, client: e.target.value})} required />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Project Name</label>
-                                <input className="form-input" value={formData.project_name} onChange={(e) => setFormData({...formData, project_name: e.target.value})} required />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Progress</label>
-                                <input className="form-input" value={formData.progress} onChange={(e) => setFormData({...formData, progress: e.target.value})} />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Status</label>
-                                <select className="form-select" value={formData.actual_status} onChange={(e) => setFormData({...formData, actual_status: e.target.value})}>
-                                    <option value="Open">Open</option>
-                                    <option value="Lose">Lose</option>
-                                    <option value="Drop">Drop</option>
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Quarter</label>
-                                <select className="form-select" value={formData.quarter} onChange={(e) => setFormData({...formData, quarter: e.target.value})}>
-                                    <option value="Q1">Q1</option>
-                                    <option value="Q2">Q2</option>
-                                    <option value="Q3">Q3</option>
-                                    <option value="Q4">Q4</option>
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Year</label>
-                                <input type="number" className="form-input" value={formData.year} onChange={(e) => setFormData({...formData, year: e.target.value})} required />
-                            </div>
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save</button>
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Cancel</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
 
 // ========================================
 // LANJUTAN - COPY KODE INI JUGA
 // ========================================
 
 // CERTIFICATIONS COMPONENT (Fitur #2 - dengan tabs)
+// ========================================
+// CERTIFICATIONS COMPONENT - FINAL
+// Sesuai DDL existing table employee_certification
+// ========================================
+
 const Certifications = () => {
     const [certs, setCerts] = useState([]);
+    const [employees, setEmployees] = useState([]);
+    const [employeeCerts, setEmployeeCerts] = useState([]);
     const [stats, setStats] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [editing, setEditing] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('list'); // list, expiring, plans
+    const [activeTab, setActiveTab] = useState('list');
+    const [currentPage, setCurrentPage] = useState(1);
     const { user } = useAuth();
+    const itemsPerPage = 10;
 
     const [formData, setFormData] = useState({
         planning_year: '2025',
@@ -1734,11 +1298,11 @@ const Certifications = () => {
         name: '',
         certification: '',
         schedule_1: '',
-        result_1: '',
+        result_1: 'Plan',
         schedule_2: '',
-        result_2: '',
+        result_2: 'Plan',
         schedule_3: '',
-        result_3: '',
+        result_3: 'Plan',
         status_final: 'On Progress',
     });
 
@@ -1746,19 +1310,33 @@ const Certifications = () => {
         loadData();
     }, []);
 
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [activeTab]);
+
     const loadData = async () => {
         try {
-            const [certsRes, statsRes] = await Promise.all([
+            const currentYear = new Date().getFullYear();
+            const [certsRes, statsRes, empCertsRes, employeesRes] = await Promise.all([
                 api.certifications.getAll(),
-                api.certifications.getStats({ year: new Date().getFullYear() }),
+                api.certifications.getStats({ year: currentYear }),
+                api.employeeCertifications.getExpiring(),
+                api.employees.getAll(),
             ]);
             setCerts(certsRes.data);
             setStats(statsRes.data);
+            setEmployeeCerts(empCertsRes.data);
+            setEmployees(employeesRes.data);
         } catch (err) {
             console.error('Error:', err);
         } finally {
             setLoading(false);
         }
+    };
+
+    const getEmployeeFullName = (employeeId) => {
+        const employee = employees.find(e => e.employee_id === employeeId);
+        return employee ? employee.full_name : employeeId;
     };
 
     const handleSubmit = async (e) => {
@@ -1769,11 +1347,49 @@ const Certifications = () => {
             } else {
                 await api.certifications.create(formData);
             }
+
+            const employeeFullName = getEmployeeFullName(formData.name);
+
+            if (formData.result_1 === 'Pass' && formData.schedule_1) {
+                await createEmployeeCertification(formData.name, employeeFullName, formData.certification, formData.schedule_1);
+            }
+
+            if (formData.result_2 === 'Pass' && formData.schedule_2) {
+                await createEmployeeCertification(formData.name, employeeFullName, formData.certification, formData.schedule_2);
+            }
+
+            if (formData.result_3 === 'Pass' && formData.schedule_3) {
+                await createEmployeeCertification(formData.name, employeeFullName, formData.certification, formData.schedule_3);
+            }
+
             setShowModal(false);
             resetForm();
             loadData();
         } catch (err) {
-            alert('Failed to save');
+            console.error('Error saving certification:', err);
+            alert('Failed to save certification');
+        }
+    };
+
+    const createEmployeeCertification = async (employeeId, employeeName, certificationName, startDate) => {
+        try {
+            const start = new Date(startDate);
+            const end = new Date(start);
+            end.setFullYear(end.getFullYear() + 2);
+
+            await api.employeeCertifications.create({
+                employee_id: employeeId,
+                name: employeeName,
+                product: '',
+                certification: certificationName,
+                start_date: startDate,
+                end_date: end.toISOString().split('T')[0],
+                status: 'Active',
+            });
+
+            console.log(`✅ Employee certification created for ${employeeName}`);
+        } catch (err) {
+            console.error('Error creating employee certification:', err);
         }
     };
 
@@ -1795,11 +1411,11 @@ const Certifications = () => {
             name: '',
             certification: '',
             schedule_1: '',
-            result_1: '',
+            result_1: 'Plan',
             schedule_2: '',
-            result_2: '',
+            result_2: 'Plan',
             schedule_3: '',
-            result_3: '',
+            result_3: 'Plan',
             status_final: 'On Progress',
         });
         setEditing(null);
@@ -1811,8 +1427,22 @@ const Certifications = () => {
         setShowModal(true);
     };
 
-    const expiringCerts = stats?.expiring || [];
-    const currentYear = new Date().getFullYear();
+    const certsByStatusFinal = certs.filter(c => c.status_final);
+    const expiringCerts = employeeCerts;
+
+    let displayData = [];
+    if (activeTab === 'list') {
+        displayData = certsByStatusFinal;
+    } else if (activeTab === 'expiring') {
+        displayData = expiringCerts;
+    } else if (activeTab === 'plans') {
+        displayData = certs.filter(c => c.status_final === 'On Progress');
+    }
+
+    const indexOfLast = currentPage * itemsPerPage;
+    const indexOfFirst = indexOfLast - itemsPerPage;
+    const currentItems = displayData.slice(indexOfFirst, indexOfLast);
+    const totalPages = Math.ceil(displayData.length / itemsPerPage);
 
     if (loading) return <div className="loading"><div className="spinner"></div><p>Loading...</p></div>;
 
@@ -1829,13 +1459,13 @@ const Certifications = () => {
 
             <div className="tabs">
                 <button className={`tab ${activeTab === 'list' ? 'active' : ''}`} onClick={() => setActiveTab('list')}>
-                    All Certifications
+                    All Certifications ({certsByStatusFinal.length})
                 </button>
                 <button className={`tab ${activeTab === 'expiring' ? 'active' : ''}`} onClick={() => setActiveTab('expiring')}>
                     Expiring This Year ({expiringCerts.length})
                 </button>
                 <button className={`tab ${activeTab === 'plans' ? 'active' : ''}`} onClick={() => setActiveTab('plans')}>
-                    Plans
+                    Plans ({certs.filter(c => c.status_final === 'On Progress').length})
                 </button>
             </div>
 
@@ -1845,7 +1475,7 @@ const Certifications = () => {
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Name</th>
+                                    <th>Employee</th>
                                     <th>Certification</th>
                                     <th>Year/Quarter</th>
                                     <th>Schedule 1</th>
@@ -1855,7 +1485,7 @@ const Certifications = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {certs.map((cert) => (
+                                {currentItems.length > 0 ? currentItems.map((cert) => (
                                     <tr key={cert.plan_id}>
                                         <td>{cert.name}</td>
                                         <td>{cert.certification}</td>
@@ -1863,7 +1493,10 @@ const Certifications = () => {
                                         <td>{cert.schedule_1}</td>
                                         <td>
                                             {cert.result_1 && (
-                                                <span className={`badge badge-${cert.result_1 === 'PASS' || cert.result_1 === 'Pass' ? 'success' : 'danger'}`}>
+                                                <span className={`badge badge-${
+                                                    cert.result_1 === 'Pass' ? 'success' : 
+                                                    cert.result_1 === 'Fail' ? 'danger' : 'info'
+                                                }`}>
                                                     {cert.result_1}
                                                 </span>
                                             )}
@@ -1882,48 +1515,64 @@ const Certifications = () => {
                                             </td>
                                         )}
                                     </tr>
-                                ))}
+                                )) : (
+                                    <tr><td colSpan="7" style={{textAlign: 'center', padding: '2rem'}}>No certifications found</td></tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
+
+                    {totalPages > 1 && (
+                        <div className="pagination">
+                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</button>
+                            <span className="page-info">Page {currentPage} of {totalPages}</span>
+                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</button>
+                        </div>
+                    )}
                 </div>
             )}
 
             {activeTab === 'expiring' && (
                 <div className="card">
                     <div className="card-header">
-                        <h3 className="card-title">Certifications Expiring in {currentYear}</h3>
+                        <h3 className="card-title">Certifications Expiring This Year</h3>
                     </div>
                     <div className="table-container">
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Name</th>
+                                    <th>Employee</th>
                                     <th>Certification</th>
-                                    <th>Last Pass Date</th>
-                                    <th>Result</th>
+                                    <th>Product</th>
+                                    <th>Start Date</th>
+                                    <th>End Date</th>
+                                    <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {expiringCerts.map((cert, idx) => {
-                                    const lastPass = cert.result_3 === 'PASS' || cert.result_3 === 'Pass' ? cert.schedule_3 :
-                                                    cert.result_2 === 'PASS' || cert.result_2 === 'Pass' ? cert.schedule_2 :
-                                                    cert.schedule_1;
-                                    return (
-                                        <tr key={idx}>
-                                            <td>{cert.name}</td>
-                                            <td>{cert.certification}</td>
-                                            <td>{lastPass}</td>
-                                            <td><span className="badge badge-warning">May Expire</span></td>
-                                        </tr>
-                                    );
-                                })}
-                                {expiringCerts.length === 0 && (
-                                    <tr><td colSpan="4" style={{textAlign: 'center'}}>No expiring certifications</td></tr>
+                                {currentItems.length > 0 ? currentItems.map((cert) => (
+                                    <tr key={cert.cert_id}>
+                                        <td>{cert.name || cert.employee_name}</td>
+                                        <td>{cert.certification}</td>
+                                        <td>{cert.product || '-'}</td>
+                                        <td>{cert.start_date}</td>
+                                        <td>{cert.end_date}</td>
+                                        <td><span className="badge badge-warning">Expiring {new Date().getFullYear()}</span></td>
+                                    </tr>
+                                )) : (
+                                    <tr><td colSpan="6" style={{textAlign: 'center', padding: '2rem'}}>No expiring certifications</td></tr>
                                 )}
                             </tbody>
                         </table>
                     </div>
+
+                    {totalPages > 1 && (
+                        <div className="pagination">
+                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</button>
+                            <span className="page-info">Page {currentPage} of {totalPages}</span>
+                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</button>
+                        </div>
+                    )}
                 </div>
             )}
 
@@ -1936,38 +1585,53 @@ const Certifications = () => {
                         <table>
                             <thead>
                                 <tr>
-                                    <th>Name</th>
+                                    <th>Employee</th>
                                     <th>Certification</th>
-                                    <th>Planned Quarter</th>
+                                    <th>Quarter</th>
                                     <th>Status</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                {certs.filter(c => c.status_final === 'On Progress').map((cert) => (
+                                {currentItems.length > 0 ? currentItems.map((cert) => (
                                     <tr key={cert.plan_id}>
                                         <td>{cert.name}</td>
                                         <td>{cert.certification}</td>
                                         <td>{cert.planning_year} {cert.planning_quarter}</td>
                                         <td><span className="badge badge-info">Planned</span></td>
                                     </tr>
-                                ))}
+                                )) : (
+                                    <tr><td colSpan="4" style={{textAlign: 'center', padding: '2rem'}}>No planned certifications</td></tr>
+                                )}
                             </tbody>
                         </table>
                     </div>
+
+                    {totalPages > 1 && (
+                        <div className="pagination">
+                            <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>Previous</button>
+                            <span className="page-info">Page {currentPage} of {totalPages}</span>
+                            <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>Next</button>
+                        </div>
+                    )}
                 </div>
             )}
 
             {showModal && (
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', maxHeight: '85vh', overflowY: 'auto' }}>
                         <div className="modal-header">
-                            <h3 className="modal-title">{editing ? 'Edit Certification' : 'Add Certification'}</h3>
+                            <h3 className="modal-title">{editing ? 'Edit Certification' : 'Add Certification Plan'}</h3>
                             <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
                         </div>
                         <form onSubmit={handleSubmit}>
                             <div className="form-group">
-                                <label className="form-label">Name</label>
-                                <input className="form-input" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required />
+                                <label className="form-label">Employee</label>
+                                <select className="form-select" value={formData.name} onChange={(e) => setFormData({...formData, name: e.target.value})} required>
+                                    <option value="">Select Employee</option>
+                                    {employees.map(emp => (
+                                        <option key={emp.employee_id} value={emp.employee_id}>{emp.employee_id} - {emp.full_name}</option>
+                                    ))}
+                                </select>
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Certification</label>
@@ -1986,16 +1650,72 @@ const Certifications = () => {
                                     <option value="Q4">Q4</option>
                                 </select>
                             </div>
-                            <div className="form-group">
-                                <label className="form-label">Schedule 1</label>
-                                <input type="date" className="form-input" value={formData.schedule_1} onChange={(e) => setFormData({...formData, schedule_1: e.target.value})} />
+
+                            <div style={{ border: '1px solid var(--border)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', background: 'rgba(59, 130, 246, 0.05)' }}>
+                                <h4 style={{ marginBottom: '1rem', color: 'var(--primary)' }}>📅 Attempt 1</h4>
+                                <div className="form-group">
+                                    <label className="form-label">Schedule</label>
+                                    <input type="date" className="form-input" value={formData.schedule_1} onChange={(e) => setFormData({...formData, schedule_1: e.target.value})} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Result</label>
+                                    <select className="form-select" value={formData.result_1} onChange={(e) => setFormData({...formData, result_1: e.target.value})}>
+                                        <option value="Plan">Plan</option>
+                                        <option value="Pass">Pass ✅</option>
+                                        <option value="Fail">Fail</option>
+                                    </select>
+                                </div>
                             </div>
-                            <div className="form-group">
-                                <label className="form-label">Result 1</label>
-                                <input className="form-input" value={formData.result_1} onChange={(e) => setFormData({...formData, result_1: e.target.value})} placeholder="PASS, Fail, etc" />
+
+                            <div style={{ border: '1px solid var(--border)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', background: 'rgba(139, 92, 246, 0.05)' }}>
+                                <h4 style={{ marginBottom: '1rem', color: '#8b5cf6' }}>📅 Attempt 2</h4>
+                                <div className="form-group">
+                                    <label className="form-label">Schedule</label>
+                                    <input type="date" className="form-input" value={formData.schedule_2} onChange={(e) => setFormData({...formData, schedule_2: e.target.value})} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Result</label>
+                                    <select className="form-select" value={formData.result_2} onChange={(e) => setFormData({...formData, result_2: e.target.value})}>
+                                        <option value="Plan">Plan</option>
+                                        <option value="Pass">Pass ✅</option>
+                                        <option value="Fail">Fail</option>
+                                    </select>
+                                </div>
                             </div>
+
+                            <div style={{ border: '1px solid var(--border)', padding: '1rem', borderRadius: '8px', marginBottom: '1rem', background: 'rgba(16, 185, 129, 0.05)' }}>
+                                <h4 style={{ marginBottom: '1rem', color: '#10b981' }}>📅 Attempt 3</h4>
+                                <div className="form-group">
+                                    <label className="form-label">Schedule</label>
+                                    <input type="date" className="form-input" value={formData.schedule_3} onChange={(e) => setFormData({...formData, schedule_3: e.target.value})} />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label">Result</label>
+                                    <select className="form-select" value={formData.result_3} onChange={(e) => setFormData({...formData, result_3: e.target.value})}>
+                                        <option value="Plan">Plan</option>
+                                        <option value="Pass">Pass ✅</option>
+                                        <option value="Fail">Fail</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div className="form-group">
+                                <label className="form-label">Status Final</label>
+                                <select className="form-select" value={formData.status_final} onChange={(e) => setFormData({...formData, status_final: e.target.value})}>
+                                    <option value="On Progress">On Progress</option>
+                                    <option value="Done">Done</option>
+                                    <option value="Passed">Passed</option>
+                                </select>
+                            </div>
+
+                            <div style={{ padding: '1rem', background: 'rgba(59, 130, 246, 0.1)', borderRadius: '8px', marginBottom: '1rem' }}>
+                                <p style={{ fontSize: '0.875rem', color: 'var(--text-secondary)', margin: 0 }}>
+                                    💡 <strong>Info:</strong> Jika Result = "Pass", sistem akan otomatis create record di Employee Certification dengan validity 2 tahun.
+                                </p>
+                            </div>
+
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save</button>
+                                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>{editing ? 'Update' : 'Save'}</button>
                                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Cancel</button>
                             </div>
                         </form>
@@ -2005,6 +1725,8 @@ const Certifications = () => {
         </div>
     );
 };
+
+
 
 // PRODUCT ASSIGNMENT COMPONENT (Fitur #3)
 const ProductAssignment = () => {

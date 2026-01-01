@@ -34,6 +34,7 @@ app.use('/api/employees', require('./routes/employees'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/opportunities', require('./routes/opportunities'));
 app.use('/api/certifications', require('./routes/certifications'));
+app.use('/api/employee-certifications', require('./routes/employee-certifications'));
 app.use('/api/product-assignments', require('./routes/product-assignments'));
 app.use('/api/leaves', require('./routes/leaves'));
 app.use('/api/mini-pocs', require('./routes/mini-pocs'));
