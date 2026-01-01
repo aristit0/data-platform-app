@@ -919,240 +919,221 @@
             );
         };
 
-const Employees = () => {
-    const [employees, setEmployees] = useState([]);
-    const [showModal, setShowModal] = useState(false);
-    const [editingEmployee, setEditingEmployee] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [currentPage, setCurrentPage] = useState(1);
-    const { user } = useAuth();
-    const itemsPerPage = 10;
+        // Employees Component (same as before)
+        const Employees = () => {
+            const [employees, setEmployees] = useState([]);
+            const [showModal, setShowModal] = useState(false);
+            const [editingEmployee, setEditingEmployee] = useState(null);
+            const [loading, setLoading] = useState(true);
+            const { user } = useAuth();
 
-    const [formData, setFormData] = useState({
-        employee_id: '',
-        full_name: '',
-        email: '',
-        position: '',
-        department: 'Data Platform',
-        join_date: '',
-        status: 'active',
-    });
+            const [formData, setFormData] = useState({
+                employee_id: '',
+                full_name: '',
+                email: '',
+                position: '',
+                department: 'Data Platform',
+                join_date: '',
+                status: 'active',
+            });
 
-    useEffect(() => {
-        loadEmployees();
-    }, []);
-
-    const loadEmployees = async () => {
-        try {
-            const response = await api.employees.getAll();
-            setEmployees(response.data);
-        } catch (err) {
-            console.error('Error loading employees:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            if (editingEmployee) {
-                await api.employees.update(editingEmployee.employee_id, formData);
-            } else {
-                await api.employees.create(formData);
-            }
-            setShowModal(false);
-            resetForm();
-            loadEmployees();
-        } catch (err) {
-            console.error('Error saving employee:', err);
-            alert('Failed to save employee');
-        }
-    };
-
-    const handleEdit = (employee) => {
-        setEditingEmployee(employee);
-        setFormData(employee);
-        setShowModal(true);
-    };
-
-    const handleDelete = async (employeeId) => {
-        if (window.confirm('Are you sure you want to delete this employee?')) {
-            try {
-                await api.employees.delete(employeeId);
+            useEffect(() => {
                 loadEmployees();
-            } catch (err) {
-                console.error('Error deleting employee:', err);
-                alert('Failed to delete employee');
+            }, []);
+
+            const loadEmployees = async () => {
+                try {
+                    const response = await api.employees.getAll();
+                    setEmployees(response.data);
+                } catch (err) {
+                    console.error('Error loading employees:', err);
+                } finally {
+                    setLoading(false);
+                }
+            };
+
+            const handleSubmit = async (e) => {
+                e.preventDefault();
+                try {
+                    if (editingEmployee) {
+                        await api.employees.update(editingEmployee.employee_id, formData);
+                    } else {
+                        await api.employees.create(formData);
+                    }
+                    setShowModal(false);
+                    resetForm();
+                    loadEmployees();
+                } catch (err) {
+                    console.error('Error saving employee:', err);
+                    alert('Failed to save employee');
+                }
+            };
+
+            const handleEdit = (employee) => {
+                setEditingEmployee(employee);
+                setFormData(employee);
+                setShowModal(true);
+            };
+
+            const handleDelete = async (employeeId) => {
+                if (window.confirm('Are you sure you want to delete this employee?')) {
+                    try {
+                        await api.employees.delete(employeeId);
+                        loadEmployees();
+                    } catch (err) {
+                        console.error('Error deleting employee:', err);
+                        alert('Failed to delete employee');
+                    }
+                }
+            };
+
+            const resetForm = () => {
+                setFormData({
+                    employee_id: '',
+                    full_name: '',
+                    email: '',
+                    position: '',
+                    department: 'Data Platform',
+                    join_date: '',
+                    status: 'active',
+                });
+                setEditingEmployee(null);
+            };
+
+            if (loading) {
+                return <div className="loading"><div className="spinner"></div><p>Loading employees...</p></div>;
             }
-        }
-    };
 
-    const resetForm = () => {
-        setFormData({
-            employee_id: '',
-            full_name: '',
-            email: '',
-            position: '',
-            department: 'Data Platform',
-            join_date: '',
-            status: 'active',
-        });
-        setEditingEmployee(null);
-    };
-
-    // Pagination
-    const indexOfLast = currentPage * itemsPerPage;
-    const indexOfFirst = indexOfLast - itemsPerPage;
-    const currentItems = employees.slice(indexOfFirst, indexOfLast);
-    const totalPages = Math.ceil(employees.length / itemsPerPage);
-
-    if (loading) {
-        return <div className="loading"><div className="spinner"></div><p>Loading employees...</p></div>;
-    }
-
-    return (
-        <div>
-            <div className="header">
-                <h2>Employees</h2>
-                {user?.role === 'admin' && (
-                    <button className="btn btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
-                        + Add Employee
-                    </button>
-                )}
-            </div>
-
-            <div className="card">
-                <div className="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Employee ID</th>
-                                <th>Name</th>
-                                <th>Email</th>
-                                <th>Position</th>
-                                <th>Department</th>
-                                <th>Join Date</th>
-                                <th>Status</th>
-                                {user?.role === 'admin' && <th>Actions</th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {currentItems.map((emp) => (
-                                <tr key={emp.employee_id}>
-                                    <td>{emp.employee_id}</td>
-                                    <td>{emp.full_name}</td>
-                                    <td>{emp.email}</td>
-                                    <td>{emp.position}</td>
-                                    <td>{emp.department}</td>
-                                    <td>{emp.join_date}</td>
-                                    <td>
-                                        <span className={`badge badge-${emp.status === 'active' ? 'success' : 'danger'}`}>
-                                            {emp.status}
-                                        </span>
-                                    </td>
-                                    {user?.role === 'admin' && (
-                                        <td>
-                                            <div className="action-buttons">
-                                                <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(emp)}>Edit</button>
-                                                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(emp.employee_id)}>Delete</button>
-                                            </div>
-                                        </td>
-                                    )}
-                                </tr>
-                            ))}
-                        </tbody>
-                    </table>
-                </div>
-
-                {totalPages > 1 && (
-                    <div className="pagination">
-                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                            Previous
-                        </button>
-                        <span className="page-info">Page {currentPage} of {totalPages}</span>
-                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-                            Next
-                        </button>
+            return (
+                <div>
+                    <div className="header">
+                        <h2>Employees</h2>
+                        {user?.role === 'admin' && (
+                            <button className="btn btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
+                                + Add Employee
+                            </button>
+                        )}
                     </div>
-                )}
-            </div>
 
-            {showModal && (
-                <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3 className="modal-title">{editingEmployee ? 'Edit Employee' : 'Add Employee'}</h3>
-                            <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
+                    <div className="card">
+                        <div className="table-container">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Employee ID</th>
+                                        <th>Name</th>
+                                        <th>Email</th>
+                                        <th>Position</th>
+                                        <th>Department</th>
+                                        <th>Join Date</th>
+                                        <th>Status</th>
+                                        {user?.role === 'admin' && <th>Actions</th>}
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {employees.map((emp) => (
+                                        <tr key={emp.employee_id}>
+                                            <td>{emp.employee_id}</td>
+                                            <td>{emp.full_name}</td>
+                                            <td>{emp.email}</td>
+                                            <td>{emp.position}</td>
+                                            <td>{emp.department}</td>
+                                            <td>{emp.join_date}</td>
+                                            <td>
+                                                <span className={`badge badge-${emp.status === 'active' ? 'success' : 'danger'}`}>
+                                                    {emp.status}
+                                                </span>
+                                            </td>
+                                            {user?.role === 'admin' && (
+                                                <td>
+                                                    <div className="action-buttons">
+                                                        <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(emp)}>Edit</button>
+                                                        <button className="btn btn-sm btn-danger" onClick={() => handleDelete(emp.employee_id)}>Delete</button>
+                                                    </div>
+                                                </td>
+                                            )}
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
                         </div>
-                        <form onSubmit={handleSubmit}>
-                            <div className="form-group">
-                                <label className="form-label">Employee ID</label>
-                                <input
-                                    className="form-input"
-                                    value={formData.employee_id}
-                                    onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
-                                    required
-                                    disabled={!!editingEmployee}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Full Name</label>
-                                <input
-                                    className="form-input"
-                                    value={formData.full_name}
-                                    onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
-                                    required
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Email</label>
-                                <input
-                                    type="email"
-                                    className="form-input"
-                                    value={formData.email}
-                                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Position</label>
-                                <input
-                                    className="form-input"
-                                    value={formData.position}
-                                    onChange={(e) => setFormData({ ...formData, position: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Join Date</label>
-                                <input
-                                    type="date"
-                                    className="form-input"
-                                    value={formData.join_date}
-                                    onChange={(e) => setFormData({ ...formData, join_date: e.target.value })}
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Status</label>
-                                <select
-                                    className="form-select"
-                                    value={formData.status}
-                                    onChange={(e) => setFormData({ ...formData, status: e.target.value })}
-                                >
-                                    <option value="active">Active</option>
-                                    <option value="inactive">Inactive</option>
-                                </select>
-                            </div>
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save</button>
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Cancel</button>
-                            </div>
-                        </form>
                     </div>
+
+                    {showModal && (
+                        <div className="modal-overlay" onClick={() => setShowModal(false)}>
+                            <div className="modal" onClick={(e) => e.stopPropagation()}>
+                                <div className="modal-header">
+                                    <h3 className="modal-title">{editingEmployee ? 'Edit Employee' : 'Add Employee'}</h3>
+                                    <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
+                                </div>
+                                <form onSubmit={handleSubmit}>
+                                    <div className="form-group">
+                                        <label className="form-label">Employee ID</label>
+                                        <input
+                                            className="form-input"
+                                            value={formData.employee_id}
+                                            onChange={(e) => setFormData({ ...formData, employee_id: e.target.value })}
+                                            required
+                                            disabled={!!editingEmployee}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Full Name</label>
+                                        <input
+                                            className="form-input"
+                                            value={formData.full_name}
+                                            onChange={(e) => setFormData({ ...formData, full_name: e.target.value })}
+                                            required
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Email</label>
+                                        <input
+                                            type="email"
+                                            className="form-input"
+                                            value={formData.email}
+                                            onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Position</label>
+                                        <input
+                                            className="form-input"
+                                            value={formData.position}
+                                            onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Join Date</label>
+                                        <input
+                                            type="date"
+                                            className="form-input"
+                                            value={formData.join_date}
+                                            onChange={(e) => setFormData({ ...formData, join_date: e.target.value })}
+                                        />
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label">Status</label>
+                                        <select
+                                            className="form-select"
+                                            value={formData.status}
+                                            onChange={(e) => setFormData({ ...formData, status: e.target.value })}
+                                        >
+                                            <option value="active">Active</option>
+                                            <option value="inactive">Inactive</option>
+                                        </select>
+                                    </div>
+                                    <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
+                                        <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save</button>
+                                        <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Cancel</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    )}
                 </div>
-            )}
-        </div>
-    );
-};
+            );
+        };
 
         // NEW COMPONENT: User Management (Fitur #1)
         const UserManagement = () => {
@@ -1745,463 +1726,16 @@ const Certifications = () => {
     );
 };
 
-// 2. PROJECTS COMPONENT - Fixed dengan pagination 10 items/page
-const Projects = () => {
-    const [projects, setProjects] = useState([]);
-    const [showModal, setShowModal] = useState(false);
-    const [editing, setEditing] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [currentPage, setCurrentPage] = useState(1);
-    const [typeFilter, setTypeFilter] = useState('');
-    const { user } = useAuth();
-    const itemsPerPage = 10;
 
-    const [formData, setFormData] = useState({
-        type: 'Implementasi',
-        client: '',
-        project_name: '',
-        duration: '',
-        end_date: '',
-        status: 'On Progress',
-        quarter: 'Q1',
-        year: '2025',
-    });
 
-    useEffect(() => {
-        loadProjects();
-    }, [typeFilter]);
-
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [typeFilter]);
-
-    const loadProjects = async () => {
-        try {
-            const params = {};
-            if (typeFilter) params.type = typeFilter;
-            const response = await api.projects.getAll(params);
-            setProjects(response.data);
-        } catch (err) {
-            console.error('Error loading projects:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            if (editing) {
-                await api.projects.update(editing.project_id, formData);
-            } else {
-                await api.projects.create(formData);
-            }
-            setShowModal(false);
-            resetForm();
-            loadProjects();
-        } catch (err) {
-            alert('Failed to save project');
-        }
-    };
-
-    const handleDelete = async (id) => {
-        if (window.confirm('Are you sure?')) {
-            try {
-                await api.projects.delete(id);
-                loadProjects();
-            } catch (err) {
-                alert('Failed to delete project');
-            }
-        }
-    };
-
-    const resetForm = () => {
-        setFormData({
-            type: 'Implementasi',
-            client: '',
-            project_name: '',
-            duration: '',
-            end_date: '',
-            status: 'On Progress',
-            quarter: 'Q1',
-            year: '2025',
-        });
-        setEditing(null);
-    };
-
-    const handleEdit = (project) => {
-        setEditing(project);
-        setFormData(project);
-        setShowModal(true);
-    };
-
-    // Pagination
-    const indexOfLast = currentPage * itemsPerPage;
-    const indexOfFirst = indexOfLast - itemsPerPage;
-    const currentItems = projects.slice(indexOfFirst, indexOfLast);
-    const totalPages = Math.ceil(projects.length / itemsPerPage);
-
-    if (loading) return <div className="loading"><div className="spinner"></div><p>Loading...</p></div>;
-
-    return (
-        <div>
-            <div className="header">
-                <h2>Projects</h2>
-                {user?.role === 'admin' && (
-                    <button className="btn btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
-                        + Add Project
-                    </button>
-                )}
-            </div>
-
-            <div className="filters">
-                <div className="filter-item">
-                    <label className="form-label">Filter by Type</label>
-                    <select className="form-select" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
-                        <option value="">All Types</option>
-                        <option value="Implementasi">Implementasi</option>
-                        <option value="Maintenance">Maintenance</option>
-                    </select>
-                </div>
-            </div>
-
-            <div className="card">
-                <div className="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Type</th>
-                                <th>Client</th>
-                                <th>Project Name</th>
-                                <th>Duration</th>
-                                <th>End Date</th>
-                                <th>Status</th>
-                                <th>Quarter</th>
-                                {user?.role === 'admin' && <th>Actions</th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {currentItems.length > 0 ? currentItems.map((proj) => (
-                                <tr key={proj.project_id}>
-                                    <td><span className={`badge badge-${proj.type === 'Implementasi' ? 'info' : 'warning'}`}>{proj.type}</span></td>
-                                    <td>{proj.client}</td>
-                                    <td>{proj.project_name}</td>
-                                    <td>{proj.duration}</td>
-                                    <td>{proj.end_date}</td>
-                                    <td><span className={`badge badge-${proj.status === 'On Progress' ? 'success' : 'info'}`}>{proj.status}</span></td>
-                                    <td>{proj.quarter} {proj.year}</td>
-                                    {user?.role === 'admin' && (
-                                        <td>
-                                            <div className="action-buttons">
-                                                <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(proj)}>Edit</button>
-                                                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(proj.project_id)}>Delete</button>
-                                            </div>
-                                        </td>
-                                    )}
-                                </tr>
-                            )) : (
-                                <tr><td colSpan="8" style={{textAlign: 'center', padding: '2rem'}}>No projects found</td></tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                {totalPages > 1 && (
-                    <div className="pagination">
-                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                            Previous
-                        </button>
-                        <span className="page-info">Page {currentPage} of {totalPages}</span>
-                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-                            Next
-                        </button>
-                    </div>
-                )}
-            </div>
-
-            {showModal && (
-                <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3 className="modal-title">{editing ? 'Edit Project' : 'Add Project'}</h3>
-                            <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
-                        </div>
-                        <form onSubmit={handleSubmit}>
-                            <div className="form-group">
-                                <label className="form-label">Type</label>
-                                <select className="form-select" value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})}>
-                                    <option value="Implementasi">Implementasi</option>
-                                    <option value="Maintenance">Maintenance</option>
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Client</label>
-                                <input className="form-input" value={formData.client} onChange={(e) => setFormData({...formData, client: e.target.value})} required />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Project Name</label>
-                                <input className="form-input" value={formData.project_name} onChange={(e) => setFormData({...formData, project_name: e.target.value})} required />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Duration</label>
-                                <input className="form-input" value={formData.duration} onChange={(e) => setFormData({...formData, duration: e.target.value})} placeholder="e.g., 6 months" />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">End Date</label>
-                                <input type="date" className="form-input" value={formData.end_date} onChange={(e) => setFormData({...formData, end_date: e.target.value})} />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Status</label>
-                                <select className="form-select" value={formData.status} onChange={(e) => setFormData({...formData, status: e.target.value})}>
-                                    <option value="On Progress">On Progress</option>
-                                    <option value="Done">Done</option>
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Quarter</label>
-                                <select className="form-select" value={formData.quarter} onChange={(e) => setFormData({...formData, quarter: e.target.value})}>
-                                    <option value="Q1">Q1</option>
-                                    <option value="Q2">Q2</option>
-                                    <option value="Q3">Q3</option>
-                                    <option value="Q4">Q4</option>
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Year</label>
-                                <input type="number" className="form-input" value={formData.year} onChange={(e) => setFormData({...formData, year: e.target.value})} required />
-                            </div>
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save</button>
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Cancel</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
-const Opportunities = () => {
-    const [opptys, setOpptys] = useState([]);
-    const [showModal, setShowModal] = useState(false);
-    const [editing, setEditing] = useState(null);
-    const [loading, setLoading] = useState(true);
-    const [currentPage, setCurrentPage] = useState(1);
-    const { user } = useAuth();
-    const itemsPerPage = 10;
-
-    const [formData, setFormData] = useState({
-        type: 'Oppty',
-        client: '',
-        project_name: '',
-        progress: '',
-        actual_status: 'Open',
-        quarter: 'Q1',
-        year: '2025',
-    });
-
-    useEffect(() => {
-        loadOpportunities();
-    }, []);
-
-    const loadOpportunities = async () => {
-        try {
-            const response = await api.opportunities.getAll();
-            setOpptys(response.data);
-        } catch (err) {
-            console.error('Error:', err);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        try {
-            if (editing) {
-                await api.opportunities.update(editing.oppty_id, formData);
-            } else {
-                await api.opportunities.create(formData);
-            }
-            setShowModal(false);
-            resetForm();
-            loadOpportunities();
-        } catch (err) {
-            alert('Failed to save opportunity');
-        }
-    };
-
-    const handleDelete = async (id) => {
-        if (window.confirm('Are you sure?')) {
-            try {
-                await api.opportunities.delete(id);
-                loadOpportunities();
-            } catch (err) {
-                alert('Failed to delete');
-            }
-        }
-    };
-
-    const resetForm = () => {
-        setFormData({
-            type: 'Oppty',
-            client: '',
-            project_name: '',
-            progress: '',
-            actual_status: 'Open',
-            quarter: 'Q1',
-            year: '2025',
-        });
-        setEditing(null);
-    };
-
-    const handleEdit = (oppty) => {
-        setEditing(oppty);
-        setFormData(oppty);
-        setShowModal(true);
-    };
-
-    // Pagination
-    const indexOfLast = currentPage * itemsPerPage;
-    const indexOfFirst = indexOfLast - itemsPerPage;
-    const currentItems = opptys.slice(indexOfFirst, indexOfLast);
-    const totalPages = Math.ceil(opptys.length / itemsPerPage);
-
-    if (loading) return <div className="loading"><div className="spinner"></div><p>Loading...</p></div>;
-
-    return (
-        <div>
-            <div className="header">
-                <h2>Opportunities</h2>
-                {user?.role === 'admin' && (
-                    <button className="btn btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
-                        + Add Opportunity
-                    </button>
-                )}
-            </div>
-
-            <div className="card">
-                <div className="table-container">
-                    <table>
-                        <thead>
-                            <tr>
-                                <th>Client</th>
-                                <th>Project Name</th>
-                                <th>Progress</th>
-                                <th>Status</th>
-                                <th>Quarter</th>
-                                {user?.role === 'admin' && <th>Actions</th>}
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {currentItems.length > 0 ? currentItems.map((opp) => (
-                                <tr key={opp.oppty_id}>
-                                    <td>{opp.client}</td>
-                                    <td>{opp.project_name}</td>
-                                    <td>{opp.progress}</td>
-                                    <td>
-                                        <span className={`badge badge-${
-                                            opp.actual_status === 'Open' ? 'success' : 
-                                            opp.actual_status === 'Lose' ? 'danger' : 'warning'
-                                        }`}>
-                                            {opp.actual_status}
-                                        </span>
-                                    </td>
-                                    <td>{opp.quarter} {opp.year}</td>
-                                    {user?.role === 'admin' && (
-                                        <td>
-                                            <div className="action-buttons">
-                                                <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(opp)}>Edit</button>
-                                                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(opp.oppty_id)}>Delete</button>
-                                            </div>
-                                        </td>
-                                    )}
-                                </tr>
-                            )) : (
-                                <tr><td colSpan="6" style={{textAlign: 'center', padding: '2rem'}}>No opportunities found</td></tr>
-                            )}
-                        </tbody>
-                    </table>
-                </div>
-
-                {totalPages > 1 && (
-                    <div className="pagination">
-                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                            Previous
-                        </button>
-                        <span className="page-info">Page {currentPage} of {totalPages}</span>
-                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-                            Next
-                        </button>
-                    </div>
-                )}
-            </div>
-
-            {showModal && (
-                <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3 className="modal-title">{editing ? 'Edit Opportunity' : 'Add Opportunity'}</h3>
-                            <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
-                        </div>
-                        <form onSubmit={handleSubmit}>
-                            <div className="form-group">
-                                <label className="form-label">Client</label>
-                                <input className="form-input" value={formData.client} onChange={(e) => setFormData({...formData, client: e.target.value})} required />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Project Name</label>
-                                <input className="form-input" value={formData.project_name} onChange={(e) => setFormData({...formData, project_name: e.target.value})} required />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Progress</label>
-                                <input className="form-input" value={formData.progress} onChange={(e) => setFormData({...formData, progress: e.target.value})} />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Status</label>
-                                <select className="form-select" value={formData.actual_status} onChange={(e) => setFormData({...formData, actual_status: e.target.value})}>
-                                    <option value="Open">Open</option>
-                                    <option value="Lose">Lose</option>
-                                    <option value="Drop">Drop</option>
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Quarter</label>
-                                <select className="form-select" value={formData.quarter} onChange={(e) => setFormData({...formData, quarter: e.target.value})}>
-                                    <option value="Q1">Q1</option>
-                                    <option value="Q2">Q2</option>
-                                    <option value="Q3">Q3</option>
-                                    <option value="Q4">Q4</option>
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Year</label>
-                                <input type="number" className="form-input" value={formData.year} onChange={(e) => setFormData({...formData, year: e.target.value})} required />
-                            </div>
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save</button>
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Cancel</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
-// 4. PRODUCT ASSIGNMENT - dengan filter employee name & pagination 10 items/page
+// PRODUCT ASSIGNMENT COMPONENT (Fitur #3)
 const ProductAssignment = () => {
     const [assignments, setAssignments] = useState([]);
     const [products, setProducts] = useState([]);
     const [employees, setEmployees] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [employeeFilter, setEmployeeFilter] = useState('');
-    const [currentPage, setCurrentPage] = useState(1);
     const { user } = useAuth();
-    const itemsPerPage = 10;
 
     const [formData, setFormData] = useState({
         employee_id: '',
@@ -2213,10 +1747,6 @@ const ProductAssignment = () => {
     useEffect(() => {
         loadData();
     }, []);
-
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [employeeFilter]);
 
     const loadData = async () => {
         try {
@@ -2267,18 +1797,6 @@ const ProductAssignment = () => {
         });
     };
 
-    // Filter by employee name
-    const filteredAssignments = assignments.filter(a => {
-        if (!employeeFilter) return true;
-        return (a.full_name || '').toLowerCase().includes(employeeFilter.toLowerCase());
-    });
-
-    // Pagination
-    const indexOfLast = currentPage * itemsPerPage;
-    const indexOfFirst = indexOfLast - itemsPerPage;
-    const currentItems = filteredAssignments.slice(indexOfFirst, indexOfLast);
-    const totalPages = Math.ceil(filteredAssignments.length / itemsPerPage);
-
     if (loading) return <div className="loading"><div className="spinner"></div><p>Loading...</p></div>;
 
     return (
@@ -2290,19 +1808,6 @@ const ProductAssignment = () => {
                         + Add Assignment
                     </button>
                 )}
-            </div>
-
-            <div className="filters">
-                <div className="filter-item">
-                    <label className="form-label">Filter by Employee Name</label>
-                    <input 
-                        type="text"
-                        className="form-input" 
-                        placeholder="Search employee name..."
-                        value={employeeFilter} 
-                        onChange={(e) => setEmployeeFilter(e.target.value)} 
-                    />
-                </div>
             </div>
 
             <div className="card">
@@ -2318,7 +1823,7 @@ const ProductAssignment = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {currentItems.length > 0 ? currentItems.map((a) => (
+                            {assignments.map((a) => (
                                 <tr key={a.id}>
                                     <td>{a.full_name || a.employee_id}</td>
                                     <td>{a.product_name}</td>
@@ -2330,24 +1835,10 @@ const ProductAssignment = () => {
                                         </td>
                                     )}
                                 </tr>
-                            )) : (
-                                <tr><td colSpan="5" style={{textAlign: 'center', padding: '2rem'}}>No assignments found</td></tr>
-                            )}
+                            ))}
                         </tbody>
                     </table>
                 </div>
-
-                {totalPages > 1 && (
-                    <div className="pagination">
-                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                            Previous
-                        </button>
-                        <span className="page-info">Page {currentPage} of {totalPages}</span>
-                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-                            Next
-                        </button>
-                    </div>
-                )}
             </div>
 
             {showModal && (
@@ -2396,22 +1887,15 @@ const ProductAssignment = () => {
     );
 };
 
-// 5. MINI POCs - Complete dengan Edit POC, Add Team Dynamic, Filter POC Code, Pagination 10 items/page
+// MINI POCs COMPONENT (Fitur #7)
 const MiniPOCs = () => {
     const [pocs, setPocs] = useState([]);
     const [selectedPoc, setSelectedPoc] = useState(null);
     const [pocDetail, setPocDetail] = useState(null);
     const [showModal, setShowModal] = useState(false);
     const [showDetailModal, setShowDetailModal] = useState(false);
-    const [showTeamModal, setShowTeamModal] = useState(false);
     const [loading, setLoading] = useState(true);
-    const [pocCodeFilter, setPocCodeFilter] = useState('');
-    const [currentPage, setCurrentPage] = useState(1);
-    const [editingPoc, setEditingPoc] = useState(null);
-    const [employees, setEmployees] = useState([]);
-    const [teamMembers, setTeamMembers] = useState([{ employee_id: '', team_name: '', role_name: '' }]);
     const { user } = useAuth();
-    const itemsPerPage = 10;
 
     const [formData, setFormData] = useState({
         poc_code: '',
@@ -2425,21 +1909,13 @@ const MiniPOCs = () => {
     });
 
     useEffect(() => {
-        loadData();
+        loadPOCs();
     }, []);
 
-    useEffect(() => {
-        setCurrentPage(1);
-    }, [pocCodeFilter]);
-
-    const loadData = async () => {
+    const loadPOCs = async () => {
         try {
-            const [pocsRes, empsRes] = await Promise.all([
-                api.miniPocs.getAll(),
-                api.employees.getAll(),
-            ]);
-            setPocs(pocsRes.data);
-            setEmployees(empsRes.data);
+            const response = await api.miniPocs.getAll();
+            setPocs(response.data);
         } catch (err) {
             console.error('Error:', err);
         } finally {
@@ -2450,33 +1926,12 @@ const MiniPOCs = () => {
     const handleSubmit = async (e) => {
         e.preventDefault();
         try {
-            if (editingPoc) {
-                // Update POC
-                await api.miniPocs.update(editingPoc.poc_code, formData);
-            } else {
-                // Create POC
-                await api.miniPocs.create(formData);
-                
-                // Add team members
-                for (const member of teamMembers) {
-                    if (member.employee_id && member.team_name && member.role_name) {
-                        const emp = employees.find(e => e.employee_id === member.employee_id);
-                        await api.miniPocs.addTeamMember(formData.poc_code, {
-                            employee_id: member.employee_id,
-                            name: emp?.full_name || '',
-                            team_name: member.team_name,
-                            role_name: member.role_name,
-                        });
-                    }
-                }
-            }
-            
+            await api.miniPocs.create(formData);
             setShowModal(false);
             resetForm();
-            loadData();
+            loadPOCs();
         } catch (err) {
-            console.error('Error saving POC:', err);
-            alert('Failed to save Mini POC');
+            alert('Failed to save');
         }
     };
 
@@ -2484,17 +1939,11 @@ const MiniPOCs = () => {
         if (window.confirm('Are you sure?')) {
             try {
                 await api.miniPocs.delete(code);
-                loadData();
+                loadPOCs();
             } catch (err) {
                 alert('Failed to delete');
             }
         }
-    };
-
-    const handleEdit = (poc) => {
-        setEditingPoc(poc);
-        setFormData(poc);
-        setShowModal(true);
     };
 
     const viewDetail = async (poc) => {
@@ -2519,35 +1968,7 @@ const MiniPOCs = () => {
             second_team: '',
             third_team: '',
         });
-        setEditingPoc(null);
-        setTeamMembers([{ employee_id: '', team_name: '', role_name: '' }]);
     };
-
-    const addTeamMember = () => {
-        setTeamMembers([...teamMembers, { employee_id: '', team_name: '', role_name: '' }]);
-    };
-
-    const removeTeamMember = (index) => {
-        setTeamMembers(teamMembers.filter((_, i) => i !== index));
-    };
-
-    const updateTeamMember = (index, field, value) => {
-        const updated = [...teamMembers];
-        updated[index][field] = value;
-        setTeamMembers(updated);
-    };
-
-    // Filter by POC Code
-    const filteredPocs = pocs.filter(poc => {
-        if (!pocCodeFilter) return true;
-        return poc.poc_code.toLowerCase().includes(pocCodeFilter.toLowerCase());
-    });
-
-    // Pagination
-    const indexOfLast = currentPage * itemsPerPage;
-    const indexOfFirst = indexOfLast - itemsPerPage;
-    const currentItems = filteredPocs.slice(indexOfFirst, indexOfLast);
-    const totalPages = Math.ceil(filteredPocs.length / itemsPerPage);
 
     if (loading) return <div className="loading"><div className="spinner"></div><p>Loading...</p></div>;
 
@@ -2560,19 +1981,6 @@ const MiniPOCs = () => {
                         + Add Mini POC
                     </button>
                 )}
-            </div>
-
-            <div className="filters">
-                <div className="filter-item">
-                    <label className="form-label">Filter by POC Code</label>
-                    <input 
-                        type="text"
-                        className="form-input" 
-                        placeholder="Search POC code..."
-                        value={pocCodeFilter} 
-                        onChange={(e) => setPocCodeFilter(e.target.value)} 
-                    />
-                </div>
             </div>
 
             <div className="card">
@@ -2590,7 +1998,7 @@ const MiniPOCs = () => {
                             </tr>
                         </thead>
                         <tbody>
-                            {currentItems.length > 0 ? currentItems.map((poc) => (
+                            {pocs.map((poc) => (
                                 <tr key={poc.poc_id}>
                                     <td>{poc.poc_code}</td>
                                     <td>{poc.use_case}</td>
@@ -2606,52 +2014,28 @@ const MiniPOCs = () => {
                                         <div className="action-buttons">
                                             <button className="btn btn-sm btn-secondary" onClick={() => viewDetail(poc)}>View Detail</button>
                                             {user?.role === 'admin' && (
-                                                <>
-                                                    <button className="btn btn-sm btn-secondary" onClick={() => handleEdit(poc)}>Edit</button>
-                                                    <button className="btn btn-sm btn-danger" onClick={() => handleDelete(poc.poc_code)}>Delete</button>
-                                                </>
+                                                <button className="btn btn-sm btn-danger" onClick={() => handleDelete(poc.poc_code)}>Delete</button>
                                             )}
                                         </div>
                                     </td>
                                 </tr>
-                            )) : (
-                                <tr><td colSpan="7" style={{textAlign: 'center', padding: '2rem'}}>No Mini POCs found</td></tr>
-                            )}
+                            ))}
                         </tbody>
                     </table>
                 </div>
-
-                {totalPages > 1 && (
-                    <div className="pagination">
-                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
-                            Previous
-                        </button>
-                        <span className="page-info">Page {currentPage} of {totalPages}</span>
-                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
-                            Next
-                        </button>
-                    </div>
-                )}
             </div>
 
             {showModal && (
                 <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '800px' }}>
+                    <div className="modal" onClick={(e) => e.stopPropagation()}>
                         <div className="modal-header">
-                            <h3 className="modal-title">{editingPoc ? 'Edit Mini POC' : 'Add Mini POC'}</h3>
+                            <h3 className="modal-title">Add Mini POC</h3>
                             <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
                         </div>
                         <form onSubmit={handleSubmit}>
                             <div className="form-group">
                                 <label className="form-label">POC Code</label>
-                                <input 
-                                    className="form-input" 
-                                    value={formData.poc_code} 
-                                    onChange={(e) => setFormData({...formData, poc_code: e.target.value})} 
-                                    required 
-                                    placeholder="e.g., Mini-POC-1"
-                                    disabled={!!editingPoc}
-                                />
+                                <input className="form-input" value={formData.poc_code} onChange={(e) => setFormData({...formData, poc_code: e.target.value})} required placeholder="e.g., Mini-POC-1" />
                             </div>
                             <div className="form-group">
                                 <label className="form-label">Use Case</label>
@@ -2672,69 +2056,6 @@ const MiniPOCs = () => {
                                     <option value="Done">Done</option>
                                 </select>
                             </div>
-                            <div className="form-group">
-                                <label className="form-label">Winner Team</label>
-                                <input className="form-input" value={formData.winner_team} onChange={(e) => setFormData({...formData, winner_team: e.target.value})} placeholder="Optional" />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">2nd Place Team</label>
-                                <input className="form-input" value={formData.second_team} onChange={(e) => setFormData({...formData, second_team: e.target.value})} placeholder="Optional" />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">3rd Place Team</label>
-                                <input className="form-input" value={formData.third_team} onChange={(e) => setFormData({...formData, third_team: e.target.value})} placeholder="Optional" />
-                            </div>
-
-                            {!editingPoc && (
-                                <div style={{ marginTop: '2rem', padding: '1rem', background: 'var(--surface-light)', borderRadius: '8px' }}>
-                                    <h4 style={{ marginBottom: '1rem', color: 'var(--text)' }}>Team Members</h4>
-                                    {teamMembers.map((member, index) => (
-                                        <div key={index} style={{ marginBottom: '1rem', padding: '1rem', background: 'var(--background)', borderRadius: '8px' }}>
-                                            <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
-                                                <strong>Member #{index + 1}</strong>
-                                                {teamMembers.length > 1 && (
-                                                    <button type="button" className="btn btn-sm btn-danger" onClick={() => removeTeamMember(index)}>Remove</button>
-                                                )}
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Employee</label>
-                                                <select 
-                                                    className="form-select" 
-                                                    value={member.employee_id} 
-                                                    onChange={(e) => updateTeamMember(index, 'employee_id', e.target.value)}
-                                                >
-                                                    <option value="">Select Employee</option>
-                                                    {employees.map(emp => (
-                                                        <option key={emp.employee_id} value={emp.employee_id}>{emp.full_name}</option>
-                                                    ))}
-                                                </select>
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Team Name</label>
-                                                <input 
-                                                    className="form-input" 
-                                                    value={member.team_name} 
-                                                    onChange={(e) => updateTeamMember(index, 'team_name', e.target.value)}
-                                                    placeholder="e.g., Team Alpha"
-                                                />
-                                            </div>
-                                            <div className="form-group">
-                                                <label className="form-label">Role</label>
-                                                <input 
-                                                    className="form-input" 
-                                                    value={member.role_name} 
-                                                    onChange={(e) => updateTeamMember(index, 'role_name', e.target.value)}
-                                                    placeholder="e.g., Developer, Designer"
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
-                                    <button type="button" className="btn btn-secondary" onClick={addTeamMember} style={{ width: '100%' }}>
-                                        + Add Team Member
-                                    </button>
-                                </div>
-                            )}
-
                             <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
                                 <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save</button>
                                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Cancel</button>
@@ -2822,6 +2143,14 @@ const renderPage = () => {
     }
 };
 */
+
+
+
+
+
+
+
+
 
 
 
