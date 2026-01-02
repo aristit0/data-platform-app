@@ -19,10 +19,18 @@ const limiter = rateLimit({
 app.use('/api/', limiter);
 
 // CORS configuration
+// app.use(cors({
+//   origin: process.env.CORS_ORIGIN || 'http://localhost:3000,http://172.28.1.233:3000',
+//   credentials: true
+// }));
+
 app.use(cors({
-  origin: process.env.CORS_ORIGIN || 'http://localhost:2222',
+  origin: (origin, callback) => {
+    callback(null, origin); // allow whatever origin comes
+  },
   credentials: true
 }));
+
 
 // Body parser
 app.use(express.json());

@@ -1306,7 +1306,7 @@ const Certifications = () => {
     const [showModal, setShowModal] = useState(false);
     const [editing, setEditing] = useState(null);
     const [loading, setLoading] = useState(true);
-    const [activeTab, setActiveTab] = useState('list');
+    const [activeTab, setActiveTab] = useState('active');
     const [currentPage, setCurrentPage] = useState(1);
     const [yearFilter, setYearFilter] = useState(new Date().getFullYear().toString());
     const [quarterFilter, setQuarterFilter] = useState('');
@@ -1455,11 +1455,13 @@ const Certifications = () => {
     const expiringCerts = employeeCerts;
 
     let displayData = [];
-    if (activeTab === 'list') {
-        displayData = certsByStatusFinal;
-    } else if (activeTab === 'expiring') {
+    if (activeTab === 'active') {
+        displayData = employeeCerts.filter(c => c.status === 'Active');
+    } 
+    else if (activeTab === 'expiring') {
         displayData = expiringCerts;
-    } else if (activeTab === 'plans') {
+    }
+    else if (activeTab === 'plans') {
         displayData = certs.filter(c => c.status_final === 'On Progress');
     }
 
@@ -1482,14 +1484,14 @@ const Certifications = () => {
             </div>
 
             <div className="tabs">
-                <button className={`tab ${activeTab === 'list' ? 'active' : ''}`} onClick={() => setActiveTab('list')}>
-                    All Certifications ({certsByStatusFinal.length})
-                </button>
-                <button className={`tab ${activeTab === 'expiring' ? 'active' : ''}`} onClick={() => setActiveTab('expiring')}>
-                    Expiring This Year ({expiringCerts.length})
+                <button className={`tab ${activeTab === 'active' ? 'active' : ''}`} onClick={() => setActiveTab('active')}>
+                    All Certifications ({employeeCerts.filter(c => c.status === 'Active').length})
                 </button>
                 <button className={`tab ${activeTab === 'plans' ? 'active' : ''}`} onClick={() => setActiveTab('plans')}>
                     Plans ({certs.filter(c => c.status_final === 'On Progress').length})
+                </button>
+                <button className={`tab ${activeTab === 'expiring' ? 'active' : ''}`} onClick={() => setActiveTab('expiring')}>
+                    Expiring This Year ({expiringCerts.length})
                 </button>
             </div>
 
@@ -1578,6 +1580,52 @@ const Certifications = () => {
                     )}
                 </div>
             )}
+
+{activeTab === 'active' && (
+    <div className="card">
+        <div className="card-header">
+            <h3 className="card-title">Active Certifications</h3>
+        </div>
+
+        <div className="table-container">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Employee</th>
+                        <th>Certification</th>
+                        <th>Product</th>
+                        <th>Start Date</th>
+                        <th>End Date</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+
+                <tbody>
+                    {currentItems.length > 0 ? currentItems.map(cert => (
+                        <tr key={cert.cert_id}>
+                            <td>{cert.name || cert.employee_name}</td>
+                            <td>{cert.certification}</td>
+                            <td>{cert.product || '-'}</td>
+                            <td>{cert.start_date}</td>
+                            <td>{cert.end_date || '-'}</td>
+                            <td>
+                                <span className="badge badge-success">
+                                    Active
+                                </span>
+                            </td>
+                        </tr>
+                    )) : (
+                        <tr>
+                            <td colSpan="6" style={{padding:'2rem',textAlign:'center'}}>
+                                No active certifications
+                            </td>
+                        </tr>
+                    )}
+                </tbody>
+            </table>
+        </div>
+    </div>
+)}
 
             {activeTab === 'expiring' && (
                 <div className="card">
@@ -2273,14 +2321,17 @@ const Opportunities = () => {
     );
 };
 
-// 4. PRODUCT ASSIGNMENT - dengan filter employee name & pagination 10 items/page
+// 4. PRODUCT ASSIGNMENT - filter employee + product + pagination
 const ProductAssignment = () => {
     const [assignments, setAssignments] = useState([]);
     const [products, setProducts] = useState([]);
     const [employees, setEmployees] = useState([]);
     const [showModal, setShowModal] = useState(false);
     const [loading, setLoading] = useState(true);
+
     const [employeeFilter, setEmployeeFilter] = useState('');
+    const [productFilter, setProductFilter] = useState('');
+
     const [currentPage, setCurrentPage] = useState(1);
     const { user } = useAuth();
     const itemsPerPage = 10;
@@ -2298,7 +2349,7 @@ const ProductAssignment = () => {
 
     useEffect(() => {
         setCurrentPage(1);
-    }, [employeeFilter]);
+    }, [employeeFilter, productFilter]);
 
     const loadData = async () => {
         try {
@@ -2307,11 +2358,12 @@ const ProductAssignment = () => {
                 api.productAssignments.getProducts(),
                 api.employees.getAll(),
             ]);
+
             setAssignments(assignRes.data);
             setProducts(prodRes.data);
             setEmployees(empRes.data);
         } catch (err) {
-            console.error('Error:', err);
+            console.error("Error:", err);
         } finally {
             setLoading(false);
         }
@@ -2325,17 +2377,17 @@ const ProductAssignment = () => {
             resetForm();
             loadData();
         } catch (err) {
-            alert('Failed to save');
+            alert("Failed to save");
         }
     };
 
     const handleDelete = async (id) => {
-        if (window.confirm('Are you sure?')) {
+        if (window.confirm("Are you sure?")) {
             try {
                 await api.productAssignments.delete(id);
                 loadData();
             } catch (err) {
-                alert('Failed to delete');
+                alert("Failed to delete");
             }
         }
     };
@@ -2349,10 +2401,17 @@ const ProductAssignment = () => {
         });
     };
 
-    // Filter by employee name
+    // ===== FILTERING =====
     const filteredAssignments = assignments.filter(a => {
-        if (!employeeFilter) return true;
-        return (a.full_name || '').toLowerCase().includes(employeeFilter.toLowerCase());
+        const matchEmployee = employeeFilter
+            ? (a.full_name || '').toLowerCase().includes(employeeFilter.toLowerCase())
+            : true;
+
+        const matchProduct = productFilter
+            ? a.product_name === productFilter
+            : true;
+
+        return matchEmployee && matchProduct;
     });
 
     // Pagination
@@ -2361,32 +2420,63 @@ const ProductAssignment = () => {
     const currentItems = filteredAssignments.slice(indexOfFirst, indexOfLast);
     const totalPages = Math.ceil(filteredAssignments.length / itemsPerPage);
 
-    if (loading) return <div className="loading"><div className="spinner"></div><p>Loading...</p></div>;
+    if (loading)
+        return (
+            <div className="loading">
+                <div className="spinner"></div>
+                <p>Loading...</p>
+            </div>
+        );
 
     return (
         <div>
             <div className="header">
                 <h2>Product Assignment</h2>
-                {user?.role === 'admin' && (
-                    <button className="btn btn-primary" onClick={() => { resetForm(); setShowModal(true); }}>
+
+                {user?.role === "admin" && (
+                    <button
+                        className="btn btn-primary"
+                        onClick={() => {
+                            resetForm();
+                            setShowModal(true);
+                        }}
+                    >
                         + Add Assignment
                     </button>
                 )}
             </div>
 
+            {/* FILTER SECTION */}
             <div className="filters">
                 <div className="filter-item">
-                    <label className="form-label">Filter by Employee Name</label>
-                    <input 
+                    <label className="form-label">Filter by Employee</label>
+                    <input
                         type="text"
-                        className="form-input" 
-                        placeholder="Search employee name..."
-                        value={employeeFilter} 
-                        onChange={(e) => setEmployeeFilter(e.target.value)} 
+                        className="form-input"
+                        placeholder="Search employee..."
+                        value={employeeFilter}
+                        onChange={(e) => setEmployeeFilter(e.target.value)}
                     />
+                </div>
+
+                <div className="filter-item">
+                    <label className="form-label">Filter by Product</label>
+                    <select
+                        className="form-input"
+                        value={productFilter}
+                        onChange={(e) => setProductFilter(e.target.value)}
+                    >
+                        <option value="">All Products</option>
+                        {products.map(p => (
+                            <option key={p.product_id} value={p.product_name}>
+                                {p.product_name}
+                            </option>
+                        ))}
+                    </select>
                 </div>
             </div>
 
+            {/* TABLE */}
             <div className="card">
                 <div className="table-container">
                     <table>
@@ -2399,81 +2489,62 @@ const ProductAssignment = () => {
                                 {user?.role === 'admin' && <th>Actions</th>}
                             </tr>
                         </thead>
+
                         <tbody>
-                            {currentItems.length > 0 ? currentItems.map((a) => (
-                                <tr key={a.id}>
-                                    <td>{a.full_name || a.employee_id}</td>
-                                    <td>{a.product_name}</td>
-                                    <td>{a.assignment_type || '-'}</td>
-                                    <td>{a.level || '-'}</td>
-                                    {user?.role === 'admin' && (
-                                        <td>
-                                            <button className="btn btn-sm btn-danger" onClick={() => handleDelete(a.id)}>Delete</button>
-                                        </td>
-                                    )}
+                            {currentItems.length > 0 ? (
+                                currentItems.map(a => (
+                                    <tr key={a.assignment_id}>
+                                        <td>{a.full_name}</td>
+                                        <td>{a.product_name}</td>
+                                        <td>{a.assignment_type}</td>
+                                        <td>{a.level}</td>
+
+                                        {user?.role === 'admin' && (
+                                            <td>
+                                                <button
+                                                    className="btn btn-danger"
+                                                    onClick={() => handleDelete(a.assignment_id)}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </td>
+                                        )}
+                                    </tr>
+                                ))
+                            ) : (
+                                <tr>
+                                    <td colSpan="5" style={{ padding: '2rem', textAlign: 'center' }}>
+                                        No data found
+                                    </td>
                                 </tr>
-                            )) : (
-                                <tr><td colSpan="5" style={{textAlign: 'center', padding: '2rem'}}>No assignments found</td></tr>
                             )}
                         </tbody>
                     </table>
                 </div>
 
+                {/* PAGINATION */}
                 {totalPages > 1 && (
                     <div className="pagination">
-                        <button onClick={() => setCurrentPage(p => Math.max(1, p - 1))} disabled={currentPage === 1}>
+                        <button
+                            onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                            disabled={currentPage === 1}
+                        >
                             Previous
                         </button>
-                        <span className="page-info">Page {currentPage} of {totalPages}</span>
-                        <button onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))} disabled={currentPage === totalPages}>
+
+                        <span className="page-info">
+                            Page {currentPage} of {totalPages}
+                        </span>
+
+                        <button
+                            onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                            disabled={currentPage === totalPages}
+                        >
                             Next
                         </button>
                     </div>
                 )}
             </div>
-
-            {showModal && (
-                <div className="modal-overlay" onClick={() => setShowModal(false)}>
-                    <div className="modal" onClick={(e) => e.stopPropagation()}>
-                        <div className="modal-header">
-                            <h3 className="modal-title">Add Product Assignment</h3>
-                            <button className="close-btn" onClick={() => setShowModal(false)}>×</button>
-                        </div>
-                        <form onSubmit={handleSubmit}>
-                            <div className="form-group">
-                                <label className="form-label">Employee</label>
-                                <select className="form-select" value={formData.employee_id} onChange={(e) => setFormData({...formData, employee_id: e.target.value})} required>
-                                    <option value="">Select Employee</option>
-                                    {employees.map(emp => (
-                                        <option key={emp.employee_id} value={emp.employee_id}>{emp.full_name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Product</label>
-                                <select className="form-select" value={formData.product_id} onChange={(e) => setFormData({...formData, product_id: e.target.value})} required>
-                                    <option value="">Select Product</option>
-                                    {products.map(prod => (
-                                        <option key={prod.product_id} value={prod.product_id}>{prod.product_name}</option>
-                                    ))}
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Assignment Type</label>
-                                <input className="form-input" value={formData.assignment_type} onChange={(e) => setFormData({...formData, assignment_type: e.target.value})} placeholder="e.g., Primary, Secondary" />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Level</label>
-                                <input className="form-input" value={formData.level} onChange={(e) => setFormData({...formData, level: e.target.value})} placeholder="e.g., Expert, Intermediate" />
-                            </div>
-                            <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-                                <button type="submit" className="btn btn-primary" style={{ flex: 1 }}>Save</button>
-                                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)} style={{ flex: 1 }}>Cancel</button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };
