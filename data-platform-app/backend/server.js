@@ -1,3 +1,5 @@
+const https = require('https');
+const fs = require('fs');
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
@@ -13,8 +15,8 @@ app.use(compression());
 
 // Rate limiting
 const limiter = rateLimit({
-  windowMs: 15 * 60 * 1000, // 15 minutes
-  max: 100 // limit each IP to 100 requests per windowMs
+  windowMs: 1440 * 60 * 1000, // 15 minutes
+  max: 1000 // limit each IP to 100 requests per windowMs
 });
 app.use('/api/', limiter);
 
@@ -24,13 +26,29 @@ app.use('/api/', limiter);
 //   credentials: true
 // }));
 
+//app.use(cors({
+//  origin: (origin, callback) => {
+//    callback(null, origin); // allow whatever origin comes
+//  },
+//  credentials: true
+//}));
+
 app.use(cors({
   origin: (origin, callback) => {
-    callback(null, origin); // allow whatever origin comes
+    // Allow requests with no origin (mobile apps, curl, Postman)
+    if (!origin) return callback(null, true);
+    // Allow all origins
+    return callback(null, true);
   },
-  credentials: true
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  exposedHeaders: ["Authorization"],
+  maxAge: 86400, // 24 hours
 }));
 
+// Handle preflight
+app.options("*", cors());
 
 // Body parser
 app.use(express.json());
@@ -38,6 +56,7 @@ app.use(express.urlencoded({ extended: true }));
 
 // Routes
 app.use('/api/auth', require('./routes/auth'));
+app.use('/api/tasks', require('./routes/tasks')); 
 app.use('/api/employees', require('./routes/employees'));
 app.use('/api/projects', require('./routes/projects'));
 app.use('/api/opportunities', require('./routes/opportunities'));
@@ -69,8 +88,13 @@ app.use((req, res) => {
 
 const PORT = process.env.PORT || 2221;
 
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
+const httpsOptions = {
+  key: fs.readFileSync("/root/data-platform-app/data-platform-app/frontend/ssl/server-key.pem"),
+  cert: fs.readFileSync("/root/data-platform-app/data-platform-app/frontend/ssl/server-cert.pem"),
+};
+
+https.createServer(httpsOptions, app).listen(PORT, () => {
+  console.log(`🚀 HTTPS Server running on port ${PORT}`);
   console.log(`📊 Environment: ${process.env.NODE_ENV}`);
   console.log(`🔗 CORS enabled for: ${process.env.CORS_ORIGIN}`);
 });

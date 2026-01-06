@@ -12,12 +12,31 @@ const pool = mysql.createPool({
   ssl: {
     ca: fs.readFileSync(path.join(__dirname, process.env.DB_SSL_CA_PATH))
   },
+  // Enhanced pooling config
   waitForConnections: true,
   connectionLimit: 10,
   queueLimit: 0,
   enableKeepAlive: true,
-  keepAliveInitialDelay: 0
+  keepAliveInitialDelay: 0,
+  maxIdle: 10,
+  idleTimeout: 60000,
+  acquireTimeout: 30000,
+  timeout: 60000,
 });
+
+// Retry logic
+async function queryWithRetry(sql, params, maxRetries = 3) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const [results] = await pool.query(sql, params);
+      return results;
+    } catch (error) {
+      if (i === maxRetries - 1) throw error;
+      console.log(`Query failed, retrying (${i + 1}/${maxRetries})...`);
+      await new Promise(resolve => setTimeout(resolve, 1000 * (i + 1)));
+    }
+  }
+}
 
 // Test connection
 pool.getConnection()

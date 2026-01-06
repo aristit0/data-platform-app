@@ -3,6 +3,10 @@ const router = express.Router();
 const db = require('../config/database');
 const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 
+// ============================================================================
+// ENHANCED EMPLOYEE CERTIFICATIONS WITH EDIT STATUS
+// ============================================================================
+
 // Get all employee certifications
 router.get('/', authMiddleware, async (req, res) => {
   try {
@@ -48,7 +52,7 @@ router.get('/expiring', authMiddleware, async (req, res) => {
         e.full_name as employee_name
       FROM employee_certification ec
       LEFT JOIN employees e ON ec.employee_id = e.employee_id
-      WHERE YEAR(ec.end_date) = ?
+      WHERE YEAR(ec.end_date) = ? AND ec.status = 'Active'
       ORDER BY ec.end_date ASC
     `, [currentYear]);
 
@@ -76,7 +80,7 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
       `INSERT INTO employee_certification 
        (employee_id, name, product, certification, start_date, end_date, status) 
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [employee_id, name, product, certification, start_date, end_date, status || 'Active']
+      [employee_id, name, product || '', certification, start_date, end_date, status || 'Active']
     );
 
     res.status(201).json({ 
@@ -89,7 +93,9 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
   }
 });
 
-// Update employee certification
+// ============================================================================
+// NEW: Update employee certification (full edit)
+// ============================================================================
 router.put('/:certId', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const { 
@@ -105,13 +111,40 @@ router.put('/:certId', authMiddleware, adminMiddleware, async (req, res) => {
       `UPDATE employee_certification 
        SET name = ?, product = ?, certification = ?, start_date = ?, end_date = ?, status = ?
        WHERE cert_id = ?`,
-      [name, product, certification, start_date, end_date, status, req.params.certId]
+      [name, product || '', certification, start_date, end_date, status, req.params.certId]
     );
 
     res.json({ message: 'Employee certification updated successfully' });
   } catch (error) {
     console.error('Error updating employee certification:', error);
     res.status(500).json({ error: 'Failed to update employee certification' });
+  }
+});
+
+// ============================================================================
+// NEW: Update certification status only (Active → Not Active)
+// ============================================================================
+router.patch('/:certId/status', authMiddleware, adminMiddleware, async (req, res) => {
+  try {
+    const { status } = req.body;
+
+    if (!['Active', 'Not Active', 'Expired', 'Renewed'].includes(status)) {
+      return res.status(400).json({ error: 'Invalid status value' });
+    }
+
+    await db.query(
+      'UPDATE employee_certification SET status = ? WHERE cert_id = ?',
+      [status, req.params.certId]
+    );
+
+    res.json({ 
+      message: `Certification status changed to ${status} successfully`,
+      cert_id: req.params.certId,
+      new_status: status
+    });
+  } catch (error) {
+    console.error('Error updating certification status:', error);
+    res.status(500).json({ error: 'Failed to update certification status' });
   }
 });
 

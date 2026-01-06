@@ -102,24 +102,46 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
   }
 });
 
-// Update leave request (admin only)
+// Update leave request (admin only) - FIXED VERSION
 router.put('/:leaveId', authMiddleware, adminMiddleware, async (req, res) => {
   try {
-    const { 
-      employee_id, leave_type, start_date, end_date, 
-      total_days, replacement_employee_id, reason, status 
-    } = req.body;
+    const updateData = req.body;
+    
+    // Build dynamic UPDATE query with only provided fields
+    const updates = [];
+    const values = [];
+    
+    // List of allowed fields to update
+    const allowedFields = [
+      'employee_id', 'leave_type', 'start_date', 'end_date',
+      'total_days', 'replacement_employee_id', 'reason', 'status'
+    ];
+    
+    // Only include fields that are actually provided
+    allowedFields.forEach(field => {
+      if (updateData.hasOwnProperty(field) && updateData[field] !== null && updateData[field] !== undefined) {
+        updates.push(`${field} = ?`);
+        values.push(updateData[field]);
+      }
+    });
+    
+    // If no fields to update, return error
+    if (updates.length === 0) {
+      return res.status(400).json({ error: 'No fields to update' });
+    }
+    
+    // Add leave_id to values array for WHERE clause
+    values.push(req.params.leaveId);
+    
+    // Execute dynamic UPDATE query
+    const query = `UPDATE leave_requests SET ${updates.join(', ')} WHERE leave_id = ?`;
+    
+    await db.query(query, values);
 
-    await db.query(
-      `UPDATE leave_requests 
-       SET employee_id = ?, leave_type = ?, start_date = ?, end_date = ?, 
-           total_days = ?, replacement_employee_id = ?, reason = ?, status = ?
-       WHERE leave_id = ?`,
-      [employee_id, leave_type, start_date, end_date, total_days, 
-       replacement_employee_id, reason, status, req.params.leaveId]
-    );
-
-    res.json({ message: 'Leave request updated successfully' });
+    res.json({ 
+      message: 'Leave request updated successfully',
+      updated_fields: updates.length 
+    });
   } catch (error) {
     console.error('Error updating leave request:', error);
     res.status(500).json({ error: 'Failed to update leave request' });
