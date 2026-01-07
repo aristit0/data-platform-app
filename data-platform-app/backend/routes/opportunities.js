@@ -6,7 +6,7 @@ const { authMiddleware, adminMiddleware } = require('../middleware/auth');
 // Get all opportunity projects
 router.get('/', authMiddleware, async (req, res) => {
   try {
-    const { quarter, year, actual_status } = req.query;
+    const { quarter, year, actual_status, type } = req.query;
     let query = 'SELECT * FROM oppty_project WHERE 1=1';
     const params = [];
 
@@ -21,6 +21,10 @@ router.get('/', authMiddleware, async (req, res) => {
     if (actual_status) {
       query += ' AND actual_status = ?';
       params.push(actual_status);
+    }
+    if (type) {
+      query += ' AND type = ?';
+      params.push(type);
     }
 
     query += ' ORDER BY created_at DESC';
@@ -61,7 +65,7 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
 
     const [result] = await db.query(
       'INSERT INTO oppty_project (type, client, project_name, progress, actual_status, quarter, year) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [type, client, project_name, progress, actual_status, quarter, year]
+      [type, client, project_name, progress || null, actual_status, quarter, year]
     );
 
     res.status(201).json({ 
@@ -81,7 +85,7 @@ router.put('/:opptyId', authMiddleware, adminMiddleware, async (req, res) => {
 
     await db.query(
       'UPDATE oppty_project SET type = ?, client = ?, project_name = ?, progress = ?, actual_status = ?, quarter = ?, year = ? WHERE oppty_id = ?',
-      [type, client, project_name, progress, actual_status, quarter, year, req.params.opptyId]
+      [type, client, project_name, progress || null, actual_status, quarter, year, req.params.opptyId]
     );
 
     res.json({ message: 'Opportunity updated successfully' });

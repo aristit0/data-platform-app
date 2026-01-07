@@ -40,6 +40,11 @@ export const projectsAPI = {
   create: (data) => api.post('/projects', data),
   update: (id, data) => api.put(`/projects/${id}`, data),
   delete: (id) => api.delete(`/projects/${id}`),
+  // Assignment endpoints
+  getAssignments: (projectId) => api.get(`/projects/${projectId}/assignments`),
+  addAssignment: (projectId, data) => api.post(`/projects/${projectId}/assignments`, data),
+  updateAssignment: (assignmentId, data) => api.put(`/projects/assignments/${assignmentId}`, data),
+  removeAssignment: (assignmentId) => api.delete(`/projects/assignments/${assignmentId}`),
 }
 
 export const opportunitiesAPI = {
@@ -95,7 +100,6 @@ export const leavesAPI = {
   delete: (id) => api.delete(`/leaves/${id}`),
 }
 
-// ✅ TASKS API - ADD THIS!
 export const tasksAPI = {
   getAll: (params) => api.get('/tasks', { params }),
   getStats: (params) => api.get('/tasks/stats', { params }),

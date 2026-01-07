@@ -1,11 +1,10 @@
 import { useState, useEffect } from 'react'
-import { opportunitiesAPI, employeesAPI } from '../services/api'
+import { opportunitiesAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import { Plus, Edit, Trash2, Filter } from 'lucide-react'
 
 export default function Opportunities() {
   const [opportunities, setOpportunities] = useState([])
-  const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
   const [editing, setEditing] = useState(null)
@@ -16,8 +15,7 @@ export default function Opportunities() {
 
   const [formData, setFormData] = useState({
     project_name: '',
-    customer_name: '',
-    pic_id: '',
+    client: '',
     type: 'Implementation',
     year: new Date().getFullYear(),
     quarter: 1,
@@ -35,12 +33,8 @@ export default function Opportunities() {
       if (quarterFilter) params.quarter = quarterFilter
       if (typeFilter) params.type = typeFilter
 
-      const [opptyRes, empRes] = await Promise.all([
-        opportunitiesAPI.getAll(params),
-        employeesAPI.getAll()
-      ])
+      const opptyRes = await opportunitiesAPI.getAll(params)
       setOpportunities(opptyRes.data)
-      setEmployees(empRes.data)
     } catch (err) {
       console.error('Error:', err)
     } finally {
@@ -77,8 +71,7 @@ export default function Opportunities() {
   const resetForm = () => {
     setFormData({
       project_name: '',
-      customer_name: '',
-      pic_id: '',
+      client: '',
       type: 'Implementation',
       year: new Date().getFullYear(),
       quarter: 1,
@@ -91,8 +84,7 @@ export default function Opportunities() {
     setEditing(oppty)
     setFormData({
       project_name: oppty.project_name,
-      customer_name: oppty.customer_name,
-      pic_id: oppty.pic_id,
+      client: oppty.client,
       type: oppty.type,
       year: oppty.year,
       quarter: oppty.quarter,
@@ -162,7 +154,6 @@ export default function Opportunities() {
             <tr>
               <th className="px-6 py-4 text-left text-sm font-semibold">Project Name</th>
               <th className="px-6 py-4 text-left text-sm font-semibold">Customer</th>
-              <th className="px-6 py-4 text-left text-sm font-semibold">PIC</th>
               <th className="px-6 py-4 text-left text-sm font-semibold">Type</th>
               <th className="px-6 py-4 text-left text-sm font-semibold">Year</th>
               <th className="px-6 py-4 text-left text-sm font-semibold">Quarter</th>
@@ -176,8 +167,7 @@ export default function Opportunities() {
             {opportunities.map((oppty) => (
               <tr key={oppty.oppty_id} className="hover:bg-white/5">
                 <td className="px-6 py-4 font-medium">{oppty.project_name}</td>
-                <td className="px-6 py-4">{oppty.customer_name}</td>
-                <td className="px-6 py-4">{oppty.pic_id}</td>
+                <td className="px-6 py-4">{oppty.client}</td>
                 <td className="px-6 py-4">
                   <span className={`px-3 py-1 rounded-full text-xs ${
                     oppty.type === 'Implementation' ? 'bg-blue-500/20 text-blue-400' : 'bg-purple-500/20 text-purple-400'
@@ -223,22 +213,31 @@ export default function Opportunities() {
             <form onSubmit={handleSubmit} className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-2">Project Name</label>
-                <input type="text" value={formData.project_name} onChange={(e) => setFormData({...formData, project_name: e.target.value})} className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg" required />
+                <input 
+                  type="text" 
+                  value={formData.project_name} 
+                  onChange={(e) => setFormData({...formData, project_name: e.target.value})} 
+                  className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg" 
+                  required 
+                />
               </div>
               <div>
-                <label className="block text-sm font-medium mb-2">Customer Name</label>
-                <input type="text" value={formData.customer_name} onChange={(e) => setFormData({...formData, customer_name: e.target.value})} className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg" required />
-              </div>
-              <div>
-                <label className="block text-sm font-medium mb-2">PIC</label>
-                <select value={formData.pic_id} onChange={(e) => setFormData({...formData, pic_id: e.target.value})} className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg" required>
-                  <option value="">Select PIC</option>
-                  {employees.map(emp => <option key={emp.employee_id} value={emp.employee_id}>{emp.employee_id} - {emp.full_name}</option>)}
-                </select>
+                <label className="block text-sm font-medium mb-2">Customer</label>
+                <input 
+                  type="text" 
+                  value={formData.client} 
+                  onChange={(e) => setFormData({...formData, client: e.target.value})} 
+                  className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg" 
+                  required 
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Type</label>
-                <select value={formData.type} onChange={(e) => setFormData({...formData, type: e.target.value})} className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg">
+                <select 
+                  value={formData.type} 
+                  onChange={(e) => setFormData({...formData, type: e.target.value})} 
+                  className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg"
+                >
                   <option value="Implementation">Implementation</option>
                   <option value="Maintenance">Maintenance</option>
                 </select>
@@ -246,18 +245,32 @@ export default function Opportunities() {
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium mb-2">Year</label>
-                  <input type="number" value={formData.year} onChange={(e) => setFormData({...formData, year: parseInt(e.target.value)})} className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg" required />
+                  <input 
+                    type="number" 
+                    value={formData.year} 
+                    onChange={(e) => setFormData({...formData, year: parseInt(e.target.value)})} 
+                    className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg" 
+                    required 
+                  />
                 </div>
                 <div>
                   <label className="block text-sm font-medium mb-2">Quarter</label>
-                  <select value={formData.quarter} onChange={(e) => setFormData({...formData, quarter: parseInt(e.target.value)})} className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg">
+                  <select 
+                    value={formData.quarter} 
+                    onChange={(e) => setFormData({...formData, quarter: parseInt(e.target.value)})} 
+                    className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg"
+                  >
                     {[1,2,3,4].map(q => <option key={q} value={q}>Q{q}</option>)}
                   </select>
                 </div>
               </div>
               <div>
                 <label className="block text-sm font-medium mb-2">Status</label>
-                <select value={formData.actual_status} onChange={(e) => setFormData({...formData, actual_status: e.target.value})} className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg">
+                <select 
+                  value={formData.actual_status} 
+                  onChange={(e) => setFormData({...formData, actual_status: e.target.value})} 
+                  className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg"
+                >
                   <option value="Open">Open</option>
                   <option value="Win">Win</option>
                   <option value="Lose">Lose</option>
@@ -265,8 +278,19 @@ export default function Opportunities() {
                 </select>
               </div>
               <div className="flex gap-4 mt-6">
-                <button type="submit" className="flex-1 btn-gradient py-3 rounded-lg text-white font-semibold">{editing ? 'Update' : 'Save'}</button>
-                <button type="button" onClick={() => { setShowModal(false); resetForm() }} className="flex-1 py-3 bg-dark-700 hover:bg-dark-600 rounded-lg">Cancel</button>
+                <button 
+                  type="submit" 
+                  className="flex-1 btn-gradient py-3 rounded-lg text-white font-semibold"
+                >
+                  {editing ? 'Update' : 'Save'}
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => { setShowModal(false); resetForm() }} 
+                  className="flex-1 py-3 bg-dark-700 hover:bg-dark-600 rounded-lg"
+                >
+                  Cancel
+                </button>
               </div>
             </form>
           </div>
