@@ -30,31 +30,52 @@ export default function TaskManagement() {
     status: 'Plan',
   })
 
-  // Set employee_id when user loads or changes
-  useEffect(() => {
-    if (user?.employee_id && !formData.employee_id) {
-      setFormData(prev => ({
-        ...prev,
-        employee_id: user.employee_id
-      }))
-    }
-  }, [user])
-
+  // Load employees first
   useEffect(() => {
     loadEmployees()
   }, [])
 
+  // Set employee_id when user and employees are loaded
   useEffect(() => {
-    loadData()
-  }, [currentPage, statusFilter, employeeFilter, viewArchived, searchTerm])
+    if (user?.employee_id && employees.length > 0) {
+      // Check if user's employee_id exists in employees list
+      const userExists = employees.find(emp => emp.employee_id === user.employee_id)
+      if (userExists && !formData.employee_id) {
+        setFormData(prev => ({
+          ...prev,
+          employee_id: user.employee_id
+        }))
+      }
+    }
+  }, [user, employees])
+
+  useEffect(() => {
+    if (employees.length > 0) {
+      loadData()
+    }
+  }, [currentPage, statusFilter, employeeFilter, viewArchived, searchTerm, employees])
 
   const loadEmployees = async () => {
     try {
       const response = await employeesAPI.getAll()
-      // Axios returns data in response.data
-      setEmployees(response.data?.data || response.data || [])
+      console.log('Employees API Response:', response)
+      
+      // Handle different response structures
+      let employeesData = []
+      if (response.data) {
+        // Check if data is nested
+        if (Array.isArray(response.data.data)) {
+          employeesData = response.data.data
+        } else if (Array.isArray(response.data)) {
+          employeesData = response.data
+        }
+      }
+      
+      console.log('Parsed Employees Data:', employeesData)
+      setEmployees(employeesData)
     } catch (err) {
       console.error('Error loading employees:', err)
+      setEmployees([])
     }
   }
 
@@ -114,17 +135,36 @@ export default function TaskManagement() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // For non-admin users, ensure employee_id is set from user
+    const submitData = {
+      ...formData,
+      employee_id: user?.role === 'admin' ? formData.employee_id : (formData.employee_id || user?.employee_id)
+    }
+    
+    // Validate employee_id
+    if (!submitData.employee_id) {
+      console.error('Missing employee_id:', { user, formData, submitData })
+      alert('Employee ID is required. Please contact admin if this issue persists.')
+      return
+    }
+    
+    console.log('Submitting task data:', submitData)
+    
     try {
       if (editing) {
-        await tasksAPI.update(editing.task_id, formData)
+        await tasksAPI.update(editing.task_id, submitData)
+        alert('Task updated successfully!')
       } else {
-        await tasksAPI.create(formData)
+        await tasksAPI.create(submitData)
+        alert('Task created successfully!')
       }
       setShowModal(false)
       resetForm()
       loadData()
     } catch (err) {
-      alert('Error saving task')
+      console.error('Error saving task:', err)
+      alert('Error saving task: ' + (err.response?.data?.message || err.message))
     }
   }
 
@@ -204,6 +244,12 @@ export default function TaskManagement() {
     return new Date(dueDate) < new Date()
   }
 
+  // Get employee name helper
+  const getEmployeeName = (employeeId) => {
+    const employee = employees.find(emp => emp.employee_id === employeeId)
+    return employee ? employee.full_name : employeeId
+  }
+
   if (loading) return <div className="text-center py-12">Loading...</div>
 
   return (
@@ -219,87 +265,102 @@ export default function TaskManagement() {
         </button>
       </div>
 
-      {/* Statistics Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div className="glass rounded-xl p-4">
-          <p className="text-sm text-gray-400 mb-1">Total Tasks</p>
-          <p className="text-2xl font-bold">{stats.total}</p>
+      {/* Stats Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6 mb-8">
+        <div className="glass rounded-xl p-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-gray-400">Total Tasks</span>
+            <CheckCircle className="text-purple-400" size={24} />
+          </div>
+          <div className="text-3xl font-bold">{stats.total || 0}</div>
         </div>
-        <div className="glass rounded-xl p-4">
-          <p className="text-sm text-gray-400 mb-1">Plan</p>
-          <p className="text-2xl font-bold text-gray-400">{stats.plan}</p>
+        <div className="glass rounded-xl p-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-gray-400">Plan</span>
+            <Clock className="text-gray-400" size={24} />
+          </div>
+          <div className="text-3xl font-bold">{stats.plan || 0}</div>
         </div>
-        <div className="glass rounded-xl p-4">
-          <p className="text-sm text-gray-400 mb-1">In Progress</p>
-          <p className="text-2xl font-bold text-blue-400">{stats.in_progress}</p>
+        <div className="glass rounded-xl p-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-gray-400">On Progress</span>
+            <Clock className="text-blue-400" size={24} />
+          </div>
+          <div className="text-3xl font-bold text-blue-400">{stats.in_progress || 0}</div>
         </div>
-        <div className="glass rounded-xl p-4">
-          <p className="text-sm text-gray-400 mb-1">Completed</p>
-          <p className="text-2xl font-bold text-green-400">{stats.completed}</p>
+        <div className="glass rounded-xl p-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-gray-400">Completed</span>
+            <CheckCircle className="text-green-400" size={24} />
+          </div>
+          <div className="text-3xl font-bold text-green-400">{stats.completed || 0}</div>
         </div>
-        <div className="glass rounded-xl p-4">
-          <p className="text-sm text-gray-400 mb-1">Overdue</p>
-          <p className="text-2xl font-bold text-red-400">{stats.overdue}</p>
+        <div className="glass rounded-xl p-6">
+          <div className="flex items-center justify-between mb-2">
+            <span className="text-gray-400">Overdue</span>
+            <Calendar className="text-red-400" size={24} />
+          </div>
+          <div className="text-3xl font-bold text-red-400">{stats.overdue || 0}</div>
         </div>
       </div>
 
       {/* Filters */}
-      <div className="mb-6 flex flex-wrap gap-4">
-        {/* Search */}
-        <div className="relative flex-1 min-w-[200px]">
-          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-          <input
-            type="text"
-            placeholder="Search client, project, task, or employee..."
-            value={searchTerm}
-            onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1) }}
-            className="w-full pl-10 pr-4 py-3 bg-dark-800 border border-white/10 rounded-lg"
-          />
-        </div>
-
-        {/* Employee Filter - Admin Only */}
-        {user?.role === 'admin' && (
-          <select
-            value={employeeFilter}
-            onChange={(e) => { setEmployeeFilter(e.target.value); setCurrentPage(1) }}
-            className="px-4 py-3 bg-dark-800 border border-white/10 rounded-lg"
+      <div className="glass rounded-xl p-6 mb-6">
+        <div className="flex flex-wrap gap-4">
+          {/* Archive Toggle */}
+          <button
+            onClick={() => { setViewArchived(!viewArchived); setCurrentPage(1) }}
+            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+              viewArchived 
+                ? 'bg-yellow-600 text-white' 
+                : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
+            }`}
           >
-            <option value="">All Employees</option>
-            {employees.map(emp => (
-              <option key={emp.employee_id} value={emp.employee_id}>
-                {emp.full_name}
-              </option>
-            ))}
+            {viewArchived ? 'View Active' : 'View Archived'}
+          </button>
+
+          {/* Status Filter */}
+          <select
+            value={statusFilter}
+            onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1) }}
+            className="px-4 py-2 bg-dark-700 border border-white/10 rounded-lg"
+          >
+            <option value="">All Status</option>
+            <option value="Plan">Plan</option>
+            <option value="On Progress">On Progress</option>
+            <option value="Completed">Completed</option>
           </select>
-        )}
 
-        {/* Status Filter */}
-        <select
-          value={statusFilter}
-          onChange={(e) => { setStatusFilter(e.target.value); setCurrentPage(1) }}
-          className="px-4 py-3 bg-dark-800 border border-white/10 rounded-lg"
-        >
-          <option value="">All Status</option>
-          <option value="Plan">Plan</option>
-          <option value="On Progress">On Progress</option>
-          <option value="Completed">Completed</option>
-        </select>
+          {/* Employee Filter - Admin Only */}
+          {user?.role === 'admin' && (
+            <select
+              value={employeeFilter}
+              onChange={(e) => { setEmployeeFilter(e.target.value); setCurrentPage(1) }}
+              className="px-4 py-2 bg-dark-700 border border-white/10 rounded-lg"
+            >
+              <option value="">All Employees</option>
+              {employees.map(emp => (
+                <option key={emp.employee_id} value={emp.employee_id}>
+                  {emp.full_name}
+                </option>
+              ))}
+            </select>
+          )}
 
-        {/* Archive Toggle */}
-        <button
-          onClick={() => { setViewArchived(!viewArchived); setCurrentPage(1) }}
-          className={`px-6 py-3 rounded-lg font-medium transition-colors ${
-            viewArchived 
-              ? 'bg-yellow-600 text-white' 
-              : 'bg-dark-700 text-gray-400 hover:bg-dark-600'
-          }`}
-        >
-          <Archive size={20} className="inline mr-2" />
-          {viewArchived ? 'Viewing Archived' : 'View Archive'}
-        </button>
+          {/* Search */}
+          <div className="flex-1 min-w-[200px]">
+            <input
+              type="text"
+              placeholder="Search tasks..."
+              value={searchTerm}
+              onChange={(e) => { setSearchTerm(e.target.value); setCurrentPage(1) }}
+              className="w-full px-4 py-2 bg-dark-700 border border-white/10 rounded-lg"
+            />
+          </div>
+        </div>
       </div>
 
-      {/* Tasks List */}
+      {/* Table */}
       <div className="glass rounded-xl overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full">
@@ -316,19 +377,15 @@ export default function TaskManagement() {
             </thead>
             <tbody className="divide-y divide-white/5">
               {tasks.length > 0 ? tasks.map((task) => (
-                <tr key={task.task_id} className="hover:bg-white/5">
+                <tr key={task.task_id} className="hover:bg-white/5 transition-colors">
                   <td className="px-6 py-4">
-                    <div>
-                      <p className="font-medium">{task.employee_name}</p>
-                      <p className="text-xs text-gray-400">{task.employee_id}</p>
-                    </div>
+                    <div className="font-medium">{getEmployeeName(task.employee_id)}</div>
+                    <div className="text-xs text-gray-400">{task.employee_id}</div>
                   </td>
                   <td className="px-6 py-4">{task.client_name}</td>
                   <td className="px-6 py-4">{task.project_name}</td>
                   <td className="px-6 py-4">
-                    <p className="max-w-xs truncate" title={task.task_detail}>
-                      {task.task_detail}
-                    </p>
+                    <div className="max-w-xs truncate text-gray-300">{task.task_detail}</div>
                   </td>
                   <td className="px-6 py-4">
                     <div className="flex items-center gap-2">
@@ -446,7 +503,7 @@ export default function TaskManagement() {
                   <select
                     value={formData.employee_id}
                     onChange={(e) => setFormData({...formData, employee_id: e.target.value})}
-                    className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg"
+                    className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500"
                     required
                   >
                     <option value="">Select Employee</option>
@@ -457,33 +514,61 @@ export default function TaskManagement() {
                     ))}
                   </select>
                 </div>
+              ) : user?.employee_id ? (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Employee</label>
+                  <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                    <p className="text-sm text-blue-400">
+                      Task for: <span className="font-semibold">{getEmployeeName(user?.employee_id) || user?.employee_id}</span>
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">Employee ID: {formData.employee_id || user?.employee_id}</p>
+                  </div>
+                  {/* Ensure employee_id is set */}
+                  <input type="hidden" name="employee_id" value={formData.employee_id || user?.employee_id} />
+                </div>
               ) : (
-                <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
-                  <p className="text-sm text-blue-400">
-                    Task for: <span className="font-semibold">{user?.name || user?.employee_id}</span>
-                  </p>
+                <div>
+                  <label className="block text-sm font-medium mb-2">Employee ID *</label>
+                  <div className="space-y-2">
+                    <select
+                      value={formData.employee_id}
+                      onChange={(e) => setFormData({...formData, employee_id: e.target.value})}
+                      className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500"
+                      required
+                    >
+                      <option value="">Select Your Employee ID</option>
+                      {employees.map(emp => (
+                        <option key={emp.employee_id} value={emp.employee_id}>
+                          {emp.full_name} ({emp.employee_id})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-yellow-400">
+                      ⚠️ Your account is not linked to an employee ID. Please select your ID from the list above.
+                    </p>
+                  </div>
                 </div>
               )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Client Name</label>
+                  <label className="block text-sm font-medium mb-2">Client Name *</label>
                   <input
                     type="text"
                     value={formData.client_name}
                     onChange={(e) => setFormData({...formData, client_name: e.target.value})}
-                    className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg"
+                    className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500"
                     placeholder="e.g., Bank ABC"
                     required
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">Project Name</label>
+                  <label className="block text-sm font-medium mb-2">Project Name *</label>
                   <input
                     type="text"
                     value={formData.project_name}
                     onChange={(e) => setFormData({...formData, project_name: e.target.value})}
-                    className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg"
+                    className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500"
                     placeholder="e.g., Data Migration"
                     required
                   />
@@ -491,11 +576,11 @@ export default function TaskManagement() {
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Task Detail</label>
+                <label className="block text-sm font-medium mb-2">Task Detail *</label>
                 <textarea
                   value={formData.task_detail}
                   onChange={(e) => setFormData({...formData, task_detail: e.target.value})}
-                  className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg"
+                  className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500"
                   rows="3"
                   placeholder="Describe the task in detail..."
                   required
@@ -504,12 +589,12 @@ export default function TaskManagement() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Due Date</label>
+                  <label className="block text-sm font-medium mb-2">Due Date *</label>
                   <input
                     type="date"
                     value={formData.due_date}
                     onChange={(e) => setFormData({...formData, due_date: e.target.value})}
-                    className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg"
+                    className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500"
                     required
                   />
                 </div>
@@ -518,7 +603,7 @@ export default function TaskManagement() {
                   <select
                     value={formData.status}
                     onChange={(e) => setFormData({...formData, status: e.target.value})}
-                    className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg"
+                    className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500"
                   >
                     <option value="Plan">Plan</option>
                     <option value="On Progress">On Progress</option>
@@ -530,14 +615,14 @@ export default function TaskManagement() {
               <div className="flex gap-4 mt-6">
                 <button
                   type="submit"
-                  className="flex-1 btn-gradient py-3 rounded-lg text-white font-semibold"
+                  className="flex-1 btn-gradient py-3 rounded-lg text-white font-semibold hover:opacity-90 transition-opacity"
                 >
                   {editing ? 'Update' : 'Create'} Task
                 </button>
                 <button
                   type="button"
                   onClick={() => { setShowModal(false); resetForm() }}
-                  className="flex-1 py-3 bg-dark-700 hover:bg-dark-600 rounded-lg"
+                  className="flex-1 py-3 bg-dark-700 hover:bg-dark-600 rounded-lg transition-colors"
                 >
                   Cancel
                 </button>

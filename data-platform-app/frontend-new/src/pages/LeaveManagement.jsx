@@ -1,13 +1,15 @@
 import { useState, useEffect } from 'react'
 import { leavesAPI, employeesAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
-import { Plus, CheckCircle, XCircle, Trash2, Calendar } from 'lucide-react'
+import { Plus, CheckCircle, XCircle, Trash2, Calendar, Eye } from 'lucide-react'
 
 export default function LeaveManagement() {
   const [leaves, setLeaves] = useState([])
   const [employees, setEmployees] = useState([])
   const [loading, setLoading] = useState(true)
   const [showModal, setShowModal] = useState(false)
+  const [showReasonModal, setShowReasonModal] = useState(false)
+  const [selectedLeave, setSelectedLeave] = useState(null)
   const [currentPage, setCurrentPage] = useState(1)
   const [statusFilter, setStatusFilter] = useState('approved')
   const { user } = useAuth()
@@ -37,13 +39,30 @@ export default function LeaveManagement() {
         employeesAPI.getAll()
       ])
       
+      // Handle different response structures for employees
+      let employeesData = []
+      if (empRes.data) {
+        if (Array.isArray(empRes.data.data)) {
+          employeesData = empRes.data.data
+        } else if (Array.isArray(empRes.data)) {
+          employeesData = empRes.data
+        }
+      }
+      
       setLeaves(leavesRes.data || [])
-      setEmployees(empRes.data || [])
+      setEmployees(employeesData)
     } catch (err) {
       console.error('Error:', err)
     } finally {
       setLoading(false)
     }
+  }
+
+  // Helper function to get employee name from ID
+  const getEmployeeName = (employeeId) => {
+    if (!employeeId) return '-'
+    const employee = employees.find(emp => emp.employee_id === employeeId)
+    return employee ? employee.full_name : employeeId
   }
 
   const calculateDays = (start, end) => {
@@ -57,20 +76,33 @@ export default function LeaveManagement() {
 
   const handleSubmit = async (e) => {
     e.preventDefault()
+    
+    // For non-admin users, ensure employee_id is set from user
+    const submitData = {
+      ...formData,
+      employee_id: user?.role === 'admin' ? formData.employee_id : (formData.employee_id || user?.employee_id),
+      total_days: calculateDays(formData.start_date, formData.end_date),
+      status: 'pending'
+    }
+    
+    // Validate employee_id
+    if (!submitData.employee_id) {
+      console.error('Missing employee_id:', { user, formData, submitData })
+      alert('Employee ID is required. Please contact admin if this issue persists.')
+      return
+    }
+    
+    console.log('Submitting leave data:', submitData)
+    
     try {
-      const submitData = {
-        ...formData,
-        total_days: calculateDays(formData.start_date, formData.end_date),
-        status: 'pending'
-      }
-      
       await leavesAPI.create(submitData)
       setShowModal(false)
       resetForm()
       loadData()
       alert('Leave request submitted successfully!')
     } catch (err) {
-      alert('Error submitting leave request')
+      console.error('Error submitting:', err)
+      alert('Error submitting leave request: ' + (err.response?.data?.message || err.message))
     }
   }
 
@@ -80,6 +112,7 @@ export default function LeaveManagement() {
       // Update the leave with approved status
       await leavesAPI.update(id, { status: 'approved' })
       loadData()
+      alert('Leave request approved!')
     } catch (err) {
       console.error('Error approving:', err)
       alert('Error approving leave')
@@ -92,6 +125,7 @@ export default function LeaveManagement() {
       // Update the leave with rejected status
       await leavesAPI.update(id, { status: 'rejected' })
       loadData()
+      alert('Leave request rejected')
     } catch (err) {
       console.error('Error rejecting:', err)
       alert('Error rejecting leave')
@@ -103,9 +137,15 @@ export default function LeaveManagement() {
     try {
       await leavesAPI.delete(id)
       loadData()
+      alert('Leave record deleted')
     } catch (err) {
       alert('Error deleting leave')
     }
+  }
+
+  const handleViewReason = (leave) => {
+    setSelectedLeave(leave)
+    setShowReasonModal(true)
   }
 
   const resetForm = () => {
@@ -193,6 +233,7 @@ export default function LeaveManagement() {
                 <th className="px-6 py-4 text-left text-sm font-semibold">End Date</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold">Days</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold">Replacement</th>
+                <th className="px-6 py-4 text-left text-sm font-semibold">Reason</th>
                 <th className="px-6 py-4 text-left text-sm font-semibold">Status</th>
                 {user?.role === 'admin' && (
                   <th className="px-6 py-4 text-left text-sm font-semibold">Actions</th>
@@ -203,29 +244,43 @@ export default function LeaveManagement() {
               {currentItems.length > 0 ? currentItems.map((leave) => (
                 <tr key={leave.leave_id} className="hover:bg-white/5 transition-colors">
                   <td className="px-6 py-4">
-                    <div>
-                      <p className="font-semibold">{leave.employee_id}</p>
-                      <p className="text-sm text-gray-400">{leave.reason}</p>
-                    </div>
+                    <div className="font-medium">{getEmployeeName(leave.employee_id)}</div>
+                    <div className="text-sm text-gray-400">{leave.employee_id}</div>
                   </td>
-                  <td className="px-6 py-4">{leave.leave_type}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={16} className="text-gray-400" />
-                      {new Date(leave.start_date).toLocaleDateString('en-GB')}
-                    </div>
+                  <td className="px-6 py-4">
+                    <span className="px-3 py-1 rounded-full text-xs font-semibold bg-blue-500/20 text-blue-400">
+                      {leave.leave_type}
+                    </span>
                   </td>
-                  <td className="px-6 py-4 text-sm">
-                    <div className="flex items-center gap-2">
-                      <Calendar size={16} className="text-gray-400" />
-                      {new Date(leave.end_date).toLocaleDateString('en-GB')}
-                    </div>
+                  <td className="px-6 py-4 text-sm text-gray-300">
+                    {new Date(leave.start_date).toLocaleDateString('en-GB')}
+                  </td>
+                  <td className="px-6 py-4 text-sm text-gray-300">
+                    {new Date(leave.end_date).toLocaleDateString('en-GB')}
                   </td>
                   <td className="px-6 py-4">
                     <span className="font-semibold">{leave.total_days} days</span>
                   </td>
-                  <td className="px-6 py-4 text-sm text-gray-400">
-                    {leave.replacement_employee_id || '-'}
+                  <td className="px-6 py-4 text-sm">
+                    {leave.replacement_employee_id ? (
+                      <div>
+                        <div className="font-medium text-gray-300">
+                          {getEmployeeName(leave.replacement_employee_id)}
+                        </div>
+                        <div className="text-xs text-gray-400">{leave.replacement_employee_id}</div>
+                      </div>
+                    ) : (
+                      <span className="text-gray-400">-</span>
+                    )}
+                  </td>
+                  <td className="px-6 py-4">
+                    <button
+                      onClick={() => handleViewReason(leave)}
+                      className="p-2 bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors"
+                      title="View Reason"
+                    >
+                      <Eye size={16} />
+                    </button>
                   </td>
                   <td className="px-6 py-4">
                     <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
@@ -270,7 +325,7 @@ export default function LeaveManagement() {
                 </tr>
               )) : (
                 <tr>
-                  <td colSpan={user?.role === 'admin' ? 8 : 7} className="px-6 py-12 text-center text-gray-400">
+                  <td colSpan={user?.role === 'admin' ? 9 : 8} className="px-6 py-12 text-center text-gray-400">
                     No leave records found
                   </td>
                 </tr>
@@ -310,9 +365,9 @@ export default function LeaveManagement() {
             <h3 className="text-2xl font-bold mb-6">Request Leave</h3>
 
             <form onSubmit={handleSubmit} className="space-y-4">
-              {user?.role === 'admin' && (
+              {user?.role === 'admin' ? (
                 <div>
-                  <label className="block text-sm font-medium mb-2">Employee</label>
+                  <label className="block text-sm font-medium mb-2">Employee *</label>
                   <select
                     value={formData.employee_id}
                     onChange={(e) => setFormData({...formData, employee_id: e.target.value})}
@@ -322,10 +377,42 @@ export default function LeaveManagement() {
                     <option value="">Select Employee</option>
                     {employees.map(emp => (
                       <option key={emp.employee_id} value={emp.employee_id}>
-                        {emp.employee_id} - {emp.full_name}
+                        {emp.full_name} ({emp.employee_id})
                       </option>
                     ))}
                   </select>
+                </div>
+              ) : user?.employee_id ? (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Employee</label>
+                  <div className="p-3 bg-blue-500/10 border border-blue-500/30 rounded-lg">
+                    <p className="text-sm text-blue-400">
+                      Request for: <span className="font-semibold">{getEmployeeName(user?.employee_id) || user?.employee_id}</span>
+                    </p>
+                    <p className="text-xs text-gray-400 mt-1">Employee ID: {user?.employee_id}</p>
+                  </div>
+                </div>
+              ) : (
+                <div>
+                  <label className="block text-sm font-medium mb-2">Employee ID *</label>
+                  <div className="space-y-2">
+                    <select
+                      value={formData.employee_id}
+                      onChange={(e) => setFormData({...formData, employee_id: e.target.value})}
+                      className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500"
+                      required
+                    >
+                      <option value="">Select Your Employee ID</option>
+                      {employees.map(emp => (
+                        <option key={emp.employee_id} value={emp.employee_id}>
+                          {emp.full_name} ({emp.employee_id})
+                        </option>
+                      ))}
+                    </select>
+                    <p className="text-xs text-yellow-400">
+                      ⚠️ Your account is not linked to an employee ID. Please select your ID from the list above.
+                    </p>
+                  </div>
                 </div>
               )}
 
@@ -345,7 +432,7 @@ export default function LeaveManagement() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium mb-2">Start Date</label>
+                  <label className="block text-sm font-medium mb-2">Start Date *</label>
                   <input
                     type="date"
                     value={formData.start_date}
@@ -355,7 +442,7 @@ export default function LeaveManagement() {
                   />
                 </div>
                 <div>
-                  <label className="block text-sm font-medium mb-2">End Date</label>
+                  <label className="block text-sm font-medium mb-2">End Date *</label>
                   <input
                     type="date"
                     value={formData.end_date}
@@ -384,14 +471,14 @@ export default function LeaveManagement() {
                   <option value="">Select Replacement</option>
                   {employees.filter(e => e.employee_id !== formData.employee_id).map(emp => (
                     <option key={emp.employee_id} value={emp.employee_id}>
-                      {emp.employee_id} - {emp.full_name}
+                      {emp.full_name} ({emp.employee_id})
                     </option>
                   ))}
                 </select>
               </div>
 
               <div>
-                <label className="block text-sm font-medium mb-2">Reason</label>
+                <label className="block text-sm font-medium mb-2">Reason *</label>
                 <textarea
                   value={formData.reason}
                   onChange={(e) => setFormData({...formData, reason: e.target.value})}
@@ -405,7 +492,7 @@ export default function LeaveManagement() {
               <div className="flex gap-4 mt-6">
                 <button
                   type="submit"
-                  className="flex-1 btn-gradient py-3 rounded-lg text-white font-semibold"
+                  className="flex-1 btn-gradient py-3 rounded-lg text-white font-semibold hover:opacity-90 transition-opacity"
                 >
                   Submit Request
                 </button>
@@ -418,6 +505,55 @@ export default function LeaveManagement() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* View Reason Modal */}
+      {showReasonModal && selectedLeave && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass rounded-2xl p-8 max-w-lg w-full">
+            <h3 className="text-2xl font-bold mb-6">Leave Reason</h3>
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Employee</label>
+                <p className="text-lg font-semibold">{getEmployeeName(selectedLeave.employee_id)}</p>
+                <p className="text-sm text-gray-400">{selectedLeave.employee_id}</p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Leave Type</label>
+                <p className="text-lg">{selectedLeave.leave_type}</p>
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">Start Date</label>
+                  <p>{new Date(selectedLeave.start_date).toLocaleDateString('en-GB')}</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-400 mb-2">End Date</label>
+                  <p>{new Date(selectedLeave.end_date).toLocaleDateString('en-GB')}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-400 mb-2">Reason</label>
+                <div className="p-4 bg-dark-700 rounded-lg border border-white/10">
+                  <p className="text-gray-200 whitespace-pre-wrap">{selectedLeave.reason || 'No reason provided'}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="mt-6">
+              <button
+                onClick={() => setShowReasonModal(false)}
+                className="w-full py-3 bg-dark-700 hover:bg-dark-600 rounded-lg transition-colors"
+              >
+                Close
+              </button>
+            </div>
           </div>
         </div>
       )}
