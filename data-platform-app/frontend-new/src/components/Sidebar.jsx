@@ -1,4 +1,5 @@
-import { CheckSquare } from 'lucide-react'
+import { Database } from 'lucide-react'
+import { CheckSquare, Package } from 'lucide-react'
 import { Link, useLocation } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { 
@@ -17,6 +18,8 @@ export default function Sidebar({ isOpen, onToggle }) {
     { path: '/opportunities', icon: Briefcase, label: 'Opportunities' },
     { path: '/certifications', icon: Award, label: 'Certifications' },
     { path: '/product-assignments', icon: Settings, label: 'Product Assignments' },
+    { path: '/product-specialists', icon: Package, label: 'Product Specialists' },
+    { path: '/assets', icon: Database, label: 'Asset Management' },
     { path: '/mini-pocs', icon: Trophy, label: 'Mini POCs' },
     { path: '/leaves', icon: Calendar, label: 'Leave Management' },
     { path: '/tasks', label: 'Task Management', icon: CheckSquare },

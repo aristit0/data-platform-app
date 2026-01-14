@@ -12,6 +12,8 @@ import MiniPOCs from './pages/MiniPOCs'
 import LeaveManagement from './pages/LeaveManagement'
 import TaskManagement from './pages/TaskManagement'
 import Layout from './components/Layout'
+import ProductSpecialists from './pages/ProductSpecialists';
+import Assets from './pages/Assets'
 
 function App() {
   return (
@@ -31,6 +33,8 @@ function App() {
             <Route path="mini-pocs" element={<MiniPOCs />} />
             <Route path="leaves" element={<LeaveManagement />} />
             <Route path="tasks" element={<TaskManagement />} />
+	    <Route path="/product-specialists" element={<ProductSpecialists />} />
+            <Route path="/assets" element={<Assets />} />
           </Route>
         </Routes>
       </Router>

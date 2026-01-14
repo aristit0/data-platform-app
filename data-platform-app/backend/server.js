@@ -63,6 +63,8 @@ app.use('/api/opportunities', require('./routes/opportunities'));
 app.use('/api/certifications', require('./routes/certifications'));
 app.use('/api/employee-certifications', require('./routes/employee-certifications'));
 app.use('/api/product-assignments', require('./routes/product-assignments'));
+app.use('/api/product-specialists', require('./routes/productSpecialists'));
+app.use('/api/assets', require('./routes/assets'));
 app.use('/api/leaves', require('./routes/leaves'));
 app.use('/api/mini-pocs', require('./routes/mini-pocs'));
 app.use('/api/dashboard', require('./routes/dashboard'));
@@ -89,9 +91,11 @@ app.use((req, res) => {
 const PORT = process.env.PORT || 2221;
 
 const httpsOptions = {
-  key: fs.readFileSync("/root/data-platform-app/data-platform-app/frontend/ssl/server-key.pem"),
-  cert: fs.readFileSync("/root/data-platform-app/data-platform-app/frontend/ssl/server-cert.pem"),
+  key: fs.readFileSync("/root/data-platform-app/data-platform-app/ssl/server-key.pem"),
+  cert: fs.readFileSync("/root/data-platform-app/data-platform-app/ssl/server-cert.pem"),
 };
+
+
 
 https.createServer(httpsOptions, app).listen(PORT, () => {
   console.log(`🚀 HTTPS Server running on port ${PORT}`);
