@@ -10,10 +10,42 @@ router.post('/register', async (req, res) => {
   try {
     const { email, password, full_name } = req.body;
 
+    // Validation
+    if (!email || !password || !full_name) {
+      return res.status(400).json({ 
+        error: 'Data tidak lengkap',
+        message: 'Email, password, dan nama lengkap harus diisi' 
+      });
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      return res.status(400).json({ 
+        error: 'Format email salah',
+        message: 'Silakan masukkan alamat email yang valid' 
+      });
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      return res.status(400).json({ 
+        error: 'Password terlalu pendek',
+        message: 'Password harus minimal 6 karakter' 
+      });
+    }
+
     // Check if user already exists
-    const [existing] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+    const [existing] = await db.query(
+      'SELECT email FROM users WHERE email = ?', 
+      [email.toLowerCase()]
+    );
+    
     if (existing.length > 0) {
-      return res.status(400).json({ error: 'Email already registered' });
+      return res.status(400).json({ 
+        error: 'Email sudah terdaftar',
+        message: 'Email ini sudah digunakan. Silakan gunakan email lain atau login.' 
+      });
     }
 
     // Hash password
@@ -22,16 +54,29 @@ router.post('/register', async (req, res) => {
     // Insert new user (pending approval)
     const [result] = await db.query(
       'INSERT INTO users (email, password_hash, full_name, role, status) VALUES (?, ?, ?, ?, ?)',
-      [email, password_hash, full_name, 'user', 'pending']
+      [email.toLowerCase(), password_hash, full_name, 'user', 'pending']
     );
 
     res.status(201).json({ 
-      message: 'Registration successful. Waiting for admin approval.',
+      success: true,
+      message: 'Registrasi berhasil! Silakan tunggu persetujuan admin sebelum login.',
       user_id: result.insertId 
     });
   } catch (error) {
     console.error('Registration error:', error);
-    res.status(500).json({ error: 'Registration failed' });
+    
+    // Handle duplicate entry error (jika ada unique constraint)
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ 
+        error: 'Email sudah terdaftar',
+        message: 'Email ini sudah digunakan. Silakan gunakan email lain.' 
+      });
+    }
+    
+    res.status(500).json({ 
+      error: 'Registrasi gagal',
+      message: 'Terjadi kesalahan saat registrasi. Silakan coba lagi.' 
+    });
   }
 });
 
@@ -40,12 +85,20 @@ router.post('/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
+    // Validation
+    if (!email || !password) {
+      return res.status(400).json({ 
+        error: 'Data tidak lengkap',
+        message: 'Email dan password harus diisi' 
+      });
+    }
+
     // Special case for default admin
     if (email === 'admin' && password === 'T1ku$H1t4m') {
       const token = jwt.sign(
         { user_id: 1, email: 'admin@dataplatform.com', role: 'admin' },
-        process.env.JWT_SECRET,
-        { expiresIn: process.env.JWT_EXPIRES_IN }
+        process.env.JWT_SECRET || 'default-secret-key-change-in-production',
+        { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
       );
 
       return res.json({
@@ -60,27 +113,56 @@ router.post('/login', async (req, res) => {
     }
 
     // Regular user login
-    const [users] = await db.query('SELECT * FROM users WHERE email = ?', [email]);
+    const [users] = await db.query(
+      'SELECT user_id, email, password_hash, full_name, role, status FROM users WHERE email = ?', 
+      [email.toLowerCase()]
+    );
     
     if (users.length === 0) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ 
+        error: 'Login gagal',
+        message: 'Email atau password salah' 
+      });
     }
 
     const user = users[0];
 
-    if (user.status !== 'approved') {
-      return res.status(403).json({ error: 'Account pending approval' });
+    // Check account status
+    if (user.status === 'pending') {
+      return res.status(403).json({ 
+        error: 'Akun menunggu persetujuan',
+        message: 'Akun Anda sedang menunggu persetujuan administrator' 
+      });
     }
 
+    if (user.status === 'rejected') {
+      return res.status(403).json({ 
+        error: 'Akun ditolak',
+        message: 'Registrasi Anda ditolak. Silakan hubungi administrator' 
+      });
+    }
+
+    if (user.status !== 'approved') {
+      return res.status(403).json({ 
+        error: 'Akun tidak aktif',
+        message: 'Akun Anda tidak aktif. Silakan hubungi administrator' 
+      });
+    }
+
+    // Verify password
     const validPassword = await bcrypt.compare(password, user.password_hash);
     if (!validPassword) {
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ 
+        error: 'Login gagal',
+        message: 'Email atau password salah' 
+      });
     }
 
+    // Generate JWT token
     const token = jwt.sign(
       { user_id: user.user_id, email: user.email, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
+      process.env.JWT_SECRET || 'default-secret-key-change-in-production',
+      { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
     );
 
     res.json({
@@ -94,7 +176,10 @@ router.post('/login', async (req, res) => {
     });
   } catch (error) {
     console.error('Login error:', error);
-    res.status(500).json({ error: 'Login failed' });
+    res.status(500).json({ 
+      error: 'Login gagal',
+      message: 'Terjadi kesalahan saat login. Silakan coba lagi.' 
+    });
   }
 });
 
@@ -117,10 +202,24 @@ router.put('/users/:userId/approve', authMiddleware, adminMiddleware, async (req
     const { userId } = req.params;
     const { status } = req.body; // 'approved' or 'rejected'
 
-    await db.query(
+    if (!['approved', 'rejected'].includes(status)) {
+      return res.status(400).json({ 
+        error: 'Status tidak valid',
+        message: 'Status harus "approved" atau "rejected"' 
+      });
+    }
+
+    const [result] = await db.query(
       'UPDATE users SET status = ?, approved_by = ?, approved_at = NOW() WHERE user_id = ?',
       [status, req.user.user_id, userId]
     );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ 
+        error: 'User tidak ditemukan',
+        message: 'User yang dimaksud tidak ada' 
+      });
+    }
 
     res.json({ message: `User ${status} successfully` });
   } catch (error) {
@@ -148,7 +247,25 @@ router.put('/users/:userId/role', authMiddleware, adminMiddleware, async (req, r
     const { userId } = req.params;
     const { role } = req.body;
 
-    await db.query('UPDATE users SET role = ? WHERE user_id = ?', [role, userId]);
+    if (!['admin', 'user'].includes(role)) {
+      return res.status(400).json({ 
+        error: 'Role tidak valid',
+        message: 'Role harus "admin" atau "user"' 
+      });
+    }
+
+    const [result] = await db.query(
+      'UPDATE users SET role = ? WHERE user_id = ?', 
+      [role, userId]
+    );
+
+    if (result.affectedRows === 0) {
+      return res.status(404).json({ 
+        error: 'User tidak ditemukan',
+        message: 'User yang dimaksud tidak ada' 
+      });
+    }
+
     res.json({ message: 'User role updated successfully' });
   } catch (error) {
     console.error('Error updating user role:', error);

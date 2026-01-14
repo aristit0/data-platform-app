@@ -10,22 +10,52 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     const savedUser = localStorage.getItem('user')
     if (savedUser) {
-      setUser(JSON.parse(savedUser))
+      try {
+        setUser(JSON.parse(savedUser))
+      } catch (error) {
+        console.error('Error parsing saved user:', error)
+        localStorage.removeItem('user')
+      }
     }
     setLoading(false)
   }, [])
 
   const login = async (email, password) => {
-    const response = await authAPI.login({ email, password })
-    const userData = response.data.user
-    setUser(userData)
-    localStorage.setItem('user', JSON.stringify(userData))
-    return userData
+    try {
+      const response = await authAPI.login({ email, password })
+      
+      // Check if response has the expected structure
+      if (!response.data || !response.data.user) {
+        throw new Error('Invalid response from server')
+      }
+
+      const userData = response.data.user
+      setUser(userData)
+      localStorage.setItem('user', JSON.stringify(userData))
+      
+      // Store token if available
+      if (response.data.token) {
+        localStorage.setItem('token', response.data.token)
+      }
+      
+      return userData
+    } catch (error) {
+      console.error('Login error in AuthContext:', error)
+      
+      // Extract error message from response
+      const errorMessage = error.response?.data?.message 
+        || error.response?.data?.error 
+        || error.message 
+        || 'Login gagal'
+      
+      throw new Error(errorMessage)
+    }
   }
 
   const logout = () => {
     setUser(null)
     localStorage.removeItem('user')
+    localStorage.removeItem('token')
   }
 
   return (

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { authAPI } from '../services/api'
 
 export default function Login() {
   const [isRegister, setIsRegister] = useState(false)
@@ -21,41 +22,52 @@ export default function Login() {
 
     try {
       if (isRegister) {
-        // Register new user
-        const response = await fetch('https://dataplatform.tomodachis.org:2221/api/auth/register', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            email,
-            password,
-            full_name: fullName,
-          }),
+        // Register new user menggunakan authAPI
+        const response = await authAPI.register({
+          email: email.trim(),
+          password,
+          full_name: fullName.trim(),
         })
 
-        const data = await response.json()
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Registration failed')
-        }
+        const data = response.data
 
         // Success - show message and switch to login
-        setSuccess('Registration successful! Please wait for admin approval before logging in.')
+        setSuccess(data.message || 'Registrasi berhasil! Silakan tunggu persetujuan admin sebelum login.')
         setIsRegister(false)
         setEmail('')
         setPassword('')
         setFullName('')
       } else {
         // Login
-        await login(email, password)
+        await login(email.trim(), password)
         navigate('/dashboard')
       }
     } catch (err) {
-      setError(err.message || err.response?.data?.error || 'An error occurred')
+      console.error('Auth error:', err)
+      
+      // Handle different error types
+      if (err.message === 'Failed to fetch' || err.code === 'ERR_NETWORK') {
+        setError('Tidak dapat terhubung ke server. Silakan periksa koneksi internet Anda.')
+      } else if (err.response?.data?.message || err.response?.data?.error) {
+        // Error dari backend
+        setError(err.response.data.message || err.response.data.error)
+      } else if (err.message) {
+        setError(err.message)
+      } else {
+        setError('Terjadi kesalahan yang tidak terduga. Silakan coba lagi.')
+      }
     } finally {
       setLoading(false)
     }
+  }
+
+  const handleToggleMode = () => {
+    setIsRegister(!isRegister)
+    setError('')
+    setSuccess('')
+    setEmail('')
+    setPassword('')
+    setFullName('')
   }
 
   return (
@@ -72,20 +84,30 @@ export default function Login() {
         {/* Login/Register Card */}
         <div className="glass rounded-2xl p-8 shadow-2xl animate-scale-in">
           <h2 className="text-2xl font-bold mb-6">
-            {isRegister ? 'Create Account' : 'Welcome Back'}
+            {isRegister ? 'Buat Akun Baru' : 'Selamat Datang'}
           </h2>
 
           {/* Error Alert */}
           {error && (
             <div className="bg-red-500/10 border border-red-500/50 text-red-400 px-4 py-3 rounded-lg mb-4 animate-slide-down">
-              {error}
+              <div className="flex items-start gap-2">
+                <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <span className="text-sm">{error}</span>
+              </div>
             </div>
           )}
 
           {/* Success Alert */}
           {success && (
             <div className="bg-green-500/10 border border-green-500/50 text-green-400 px-4 py-3 rounded-lg mb-4 animate-slide-down">
-              {success}
+              <div className="flex items-start gap-2">
+                <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                </svg>
+                <span className="text-sm">{success}</span>
+              </div>
             </div>
           )}
 
@@ -94,16 +116,17 @@ export default function Login() {
             {isRegister && (
               <div>
                 <label className="block text-sm font-medium mb-2 text-gray-300">
-                  Full Name
+                  Nama Lengkap <span className="text-red-400">*</span>
                 </label>
                 <input
                   type="text"
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
                   className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500 transition-all"
-                  placeholder="Enter your full name"
+                  placeholder="Masukkan nama lengkap"
                   required
                   autoComplete="name"
+                  disabled={loading}
                 />
               </div>
             )}
@@ -111,36 +134,38 @@ export default function Login() {
             {/* Email */}
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-300">
-                Email {!isRegister && 'or Username'}
+                {isRegister ? 'Email' : 'Email atau Username'} <span className="text-red-400">*</span>
               </label>
               <input
-                type="text"
+                type={isRegister ? "email" : "text"}
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500 transition-all"
-                placeholder={isRegister ? "Enter your email" : "Enter your email or username"}
+                placeholder={isRegister ? "Masukkan alamat email" : "Masukkan email atau username"}
                 required
                 autoComplete="username"
+                disabled={loading}
               />
             </div>
 
             {/* Password */}
             <div>
               <label className="block text-sm font-medium mb-2 text-gray-300">
-                Password
+                Password <span className="text-red-400">*</span>
               </label>
               <input
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 bg-dark-700 border border-white/10 rounded-lg focus:outline-none focus:border-primary-500 transition-all"
-                placeholder="Enter your password"
+                placeholder="Masukkan password"
                 required
                 autoComplete={isRegister ? "new-password" : "current-password"}
                 minLength={isRegister ? 6 : undefined}
+                disabled={loading}
               />
               {isRegister && (
-                <p className="text-xs text-gray-500 mt-1">Minimum 6 characters</p>
+                <p className="text-xs text-gray-500 mt-1">Minimal 6 karakter</p>
               )}
             </div>
 
@@ -148,7 +173,7 @@ export default function Login() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full btn-gradient text-white font-semibold py-3 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105"
+              className="w-full btn-gradient text-white font-semibold py-3 px-6 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed transition-all transform hover:scale-105 active:scale-95"
             >
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
@@ -156,10 +181,10 @@ export default function Login() {
                     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
                     <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                   </svg>
-                  {isRegister ? 'Creating account...' : 'Logging in...'}
+                  {isRegister ? 'Membuat akun...' : 'Masuk...'}
                 </span>
               ) : (
-                isRegister ? 'Register' : 'Login'
+                isRegister ? 'Daftar' : 'Masuk'
               )}
             </button>
           </form>
@@ -168,30 +193,24 @@ export default function Login() {
           <div className="text-center mt-6 text-gray-400">
             {isRegister ? (
               <p>
-                Already have an account?{' '}
+                Sudah punya akun?{' '}
                 <button
-                  onClick={() => {
-                    setIsRegister(false)
-                    setError('')
-                    setSuccess('')
-                  }}
+                  onClick={handleToggleMode}
                   className="text-primary-500 hover:text-primary-400 font-medium transition-colors"
+                  disabled={loading}
                 >
-                  Login here
+                  Masuk di sini
                 </button>
               </p>
             ) : (
               <p>
-                Don't have an account?{' '}
+                Belum punya akun?{' '}
                 <button
-                  onClick={() => {
-                    setIsRegister(true)
-                    setError('')
-                    setSuccess('')
-                  }}
+                  onClick={handleToggleMode}
                   className="text-primary-500 hover:text-primary-400 font-medium transition-colors"
+                  disabled={loading}
                 >
-                  Register here
+                  Daftar di sini
                 </button>
               </p>
             )}
@@ -201,7 +220,14 @@ export default function Login() {
         {/* Info Note for Registration */}
         {isRegister && (
           <div className="mt-4 text-center text-sm text-gray-500 animate-fade-in">
-            <p>After registration, your account will be pending approval by an administrator.</p>
+            <div className="glass rounded-lg p-3">
+              <p className="flex items-center justify-center gap-2">
+                <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                </svg>
+                Setelah registrasi, akun Anda akan menunggu persetujuan administrator.
+              </p>
+            </div>
           </div>
         )}
       </div>

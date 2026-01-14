@@ -299,46 +299,87 @@ router.put('/repositories/:id', authMiddleware, adminMiddleware, async (req, res
     );
     res.json({ message: 'Repository updated' });
   } catch (e) {
+    console.error('[PUT repo]', e);
     res.status(500).json({ error: 'Failed to update repository' });
   }
 });
 
 router.delete('/repositories/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  await db.query('DELETE FROM asset_repositories WHERE id=?', [req.params.id]);
-  res.json({ message: 'Repository deleted' });
+  try {
+    await db.query('DELETE FROM asset_repositories WHERE id=?', [req.params.id]);
+    res.json({ message: 'Repository deleted' });
+  } catch (e) {
+    console.error('[DELETE repo]', e);
+    res.status(500).json({ error: 'Failed to delete repository' });
+  }
 });
 
 /* ---------- DOCUMENTS ---------- */
 router.post('/:assetId/documents', authMiddleware, adminMiddleware, async (req, res) => {
   try {
+    console.log('[POST document] Request body:', req.body);
+    console.log('[POST document] Asset ID:', req.params.assetId);
+    
     const { document_title, document_type, document_url, file_format, is_primary, description } = req.body;
+    
+    // Validate required fields
+    if (!document_title || !document_url) {
+      console.error('[POST document] Missing required fields');
+      return res.status(400).json({ error: 'Document title and URL are required' });
+    }
+    
     await simpleInsert(
       res,
       `INSERT INTO asset_documents
        (asset_id, document_title, document_type, document_url, file_format, is_primary, description)
        VALUES (?, ?, ?, ?, ?, ?, ?)`,
-      [req.params.assetId, document_title, document_type, document_url, file_format, !!is_primary, description],
+      [
+        req.params.assetId, 
+        document_title, 
+        document_type || 'Technical Documentation', 
+        document_url, 
+        file_format || null, 
+        !!is_primary, 
+        description || null
+      ],
       'Document created'
     );
   } catch (e) {
-    res.status(500).json({ error: 'Failed to add document' });
+    console.error('[POST document] Error:', e);
+    res.status(500).json({ error: 'Failed to add document', details: e.message });
   }
 });
 
 router.put('/documents/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  const { document_title, document_type, document_url, file_format, is_primary, description } = req.body;
-  await db.query(
-    `UPDATE asset_documents
-     SET document_title=?, document_type=?, document_url=?, file_format=?, is_primary=?, description=?
-     WHERE id=?`,
-    [document_title, document_type, document_url, file_format, is_primary, description, req.params.id]
-  );
-  res.json({ message: 'Document updated' });
+  try {
+    console.log('[PUT document] Request body:', req.body);
+    console.log('[PUT document] Document ID:', req.params.id);
+    
+    const { document_title, document_type, document_url, file_format, is_primary, description } = req.body;
+    
+    await db.query(
+      `UPDATE asset_documents
+       SET document_title=?, document_type=?, document_url=?, file_format=?, is_primary=?, description=?
+       WHERE id=?`,
+      [document_title, document_type, document_url, file_format, is_primary, description, req.params.id]
+    );
+    res.json({ message: 'Document updated' });
+  } catch (e) {
+    console.error('[PUT document] Error:', e);
+    res.status(500).json({ error: 'Failed to update document', details: e.message });
+  }
 });
 
 router.delete('/documents/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  await db.query('DELETE FROM asset_documents WHERE id=?', [req.params.id]);
-  res.json({ message: 'Document deleted' });
+  try {
+    console.log('[DELETE document] Document ID:', req.params.id);
+    
+    await db.query('DELETE FROM asset_documents WHERE id=?', [req.params.id]);
+    res.json({ message: 'Document deleted' });
+  } catch (e) {
+    console.error('[DELETE document] Error:', e);
+    res.status(500).json({ error: 'Failed to delete document', details: e.message });
+  }
 });
 
 /* ---------- SERVERS ---------- */
@@ -368,97 +409,194 @@ router.post('/:assetId/servers', authMiddleware, adminMiddleware, async (req, re
       'Server created'
     );
   } catch (e) {
+    console.error('[POST server]', e);
     res.status(500).json({ error: 'Failed to add server' });
   }
 });
 
 router.put('/servers/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  const { server_name, server_type, ip_address, hostname, port, url, hosting_provider, region, specifications, status, notes } = req.body;
-  await db.query(
-    `UPDATE asset_servers
-     SET server_name=?, server_type=?, ip_address=?, hostname=?, port=?, url=?,
-         hosting_provider=?, region=?, specifications=?, status=?, notes=?
-     WHERE id=?`,
-    [server_name, server_type, ip_address, hostname, port, url, hosting_provider, region, specifications, status, notes, req.params.id]
-  );
-  res.json({ message: 'Server updated' });
+  try {
+    const { server_name, server_type, ip_address, hostname, port, url, hosting_provider, region, specifications, status, notes } = req.body;
+    await db.query(
+      `UPDATE asset_servers
+       SET server_name=?, server_type=?, ip_address=?, hostname=?, port=?, url=?,
+           hosting_provider=?, region=?, specifications=?, status=?, notes=?
+       WHERE id=?`,
+      [server_name, server_type, ip_address, hostname, port, url, hosting_provider, region, specifications, status, notes, req.params.id]
+    );
+    res.json({ message: 'Server updated' });
+  } catch (e) {
+    console.error('[PUT server]', e);
+    res.status(500).json({ error: 'Failed to update server' });
+  }
 });
 
 router.delete('/servers/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  await db.query('DELETE FROM asset_servers WHERE id=?', [req.params.id]);
-  res.json({ message: 'Server deleted' });
+  try {
+    await db.query('DELETE FROM asset_servers WHERE id=?', [req.params.id]);
+    res.json({ message: 'Server deleted' });
+  } catch (e) {
+    console.error('[DELETE server]', e);
+    res.status(500).json({ error: 'Failed to delete server' });
+  }
 });
 
-/* ---------- CREDENTIALS ---------- */
+/* ---------- CREDENTIALS (FIXED!) ---------- */
 router.post('/:assetId/credentials', authMiddleware, adminMiddleware, async (req, res) => {
-  const { credential_type, username, password, email, access_level, environment, description, expiry_date, is_active, notes } = req.body;
-  await simpleInsert(
-    res,
-    `INSERT INTO asset_credentials
-     (asset_id, credential_type, username, password, email, access_level,
-      environment, description, expiry_date, is_active, notes)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-    [
-      req.params.assetId,
-      credential_type,
-      username,
-      password,
-      email,
-      access_level,
-      environment,
-      description,
-      expiry_date,
-      is_active !== false,
-      notes
-    ],
-    'Credential created'
-  );
+  try {
+    console.log('[POST credential] Request body:', req.body);
+    console.log('[POST credential] Asset ID:', req.params.assetId);
+    
+    const { 
+      credential_type, 
+      username, 
+      password, 
+      email, 
+      access_level, 
+      environment, 
+      description, 
+      expiry_date, 
+      is_active, 
+      notes 
+    } = req.body;
+    
+    // Validate required fields
+    if (!credential_type || !environment) {
+      console.error('[POST credential] Missing required fields');
+      return res.status(400).json({ error: 'Credential type and environment are required' });
+    }
+    
+    await simpleInsert(
+      res,
+      `INSERT INTO asset_credentials
+       (asset_id, credential_type, username, password, email, access_level,
+        environment, description, expiry_date, is_active, notes)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [
+        req.params.assetId,
+        credential_type,
+        username || null,
+        password || null,
+        email || null,
+        access_level || 'Full',
+        environment,
+        description || null,
+        expiry_date || null,
+        is_active !== false,
+        notes || null
+      ],
+      'Credential created'
+    );
+    console.log('[POST credential] Success');
+  } catch (e) {
+    console.error('[POST credential] Error:', e);
+    console.error('[POST credential] Error stack:', e.stack);
+    res.status(500).json({ error: 'Failed to add credential', details: e.message });
+  }
 });
 
 router.put('/credentials/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  const { credential_type, username, password, email, access_level, environment, description, expiry_date, is_active, notes } = req.body;
-  await db.query(
-    `UPDATE asset_credentials
-     SET credential_type=?, username=?, password=?, email=?, access_level=?,
-         environment=?, description=?, expiry_date=?, is_active=?, notes=?
-     WHERE id=?`,
-    [credential_type, username, password, email, access_level, environment, description, expiry_date, is_active, notes, req.params.id]
-  );
-  res.json({ message: 'Credential updated' });
+  try {
+    console.log('[PUT credential] Request body:', req.body);
+    console.log('[PUT credential] Credential ID:', req.params.id);
+    
+    const { 
+      credential_type, 
+      username, 
+      password, 
+      email, 
+      access_level, 
+      environment, 
+      description, 
+      expiry_date, 
+      is_active, 
+      notes 
+    } = req.body;
+    
+    await db.query(
+      `UPDATE asset_credentials
+       SET credential_type=?, username=?, password=?, email=?, access_level=?,
+           environment=?, description=?, expiry_date=?, is_active=?, notes=?
+       WHERE id=?`,
+      [
+        credential_type, 
+        username || null, 
+        password || null, 
+        email || null, 
+        access_level, 
+        environment, 
+        description || null, 
+        expiry_date || null, 
+        is_active, 
+        notes || null, 
+        req.params.id
+      ]
+    );
+    res.json({ message: 'Credential updated' });
+    console.log('[PUT credential] Success');
+  } catch (e) {
+    console.error('[PUT credential] Error:', e);
+    console.error('[PUT credential] Error stack:', e.stack);
+    res.status(500).json({ error: 'Failed to update credential', details: e.message });
+  }
 });
 
 router.delete('/credentials/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  await db.query('DELETE FROM asset_credentials WHERE id=?', [req.params.id]);
-  res.json({ message: 'Credential deleted' });
+  try {
+    console.log('[DELETE credential] Credential ID:', req.params.id);
+    
+    await db.query('DELETE FROM asset_credentials WHERE id=?', [req.params.id]);
+    res.json({ message: 'Credential deleted' });
+    console.log('[DELETE credential] Success');
+  } catch (e) {
+    console.error('[DELETE credential] Error:', e);
+    console.error('[DELETE credential] Error stack:', e.stack);
+    res.status(500).json({ error: 'Failed to delete credential', details: e.message });
+  }
 });
 
 /* ---------- LINKS ---------- */
 router.post('/:assetId/links', authMiddleware, adminMiddleware, async (req, res) => {
-  const { link_title, link_type, url, description, is_primary } = req.body;
-  await simpleInsert(
-    res,
-    `INSERT INTO asset_links
-     (asset_id, link_title, link_type, url, description, is_primary)
-     VALUES (?, ?, ?, ?, ?, ?)`,
-    [req.params.assetId, link_title, link_type, url, description, !!is_primary],
-    'Link created'
-  );
+  try {
+    const { link_title, link_type, url, description, is_primary } = req.body;
+    await simpleInsert(
+      res,
+      `INSERT INTO asset_links
+       (asset_id, link_title, link_type, url, description, is_primary)
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [req.params.assetId, link_title, link_type, url, description, !!is_primary],
+      'Link created'
+    );
+  } catch (e) {
+    console.error('[POST link]', e);
+    res.status(500).json({ error: 'Failed to add link' });
+  }
 });
 
 router.put('/links/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  const { link_title, link_type, url, description, is_primary } = req.body;
-  await db.query(
-    `UPDATE asset_links
-     SET link_title=?, link_type=?, url=?, description=?, is_primary=?
-     WHERE id=?`,
-    [link_title, link_type, url, description, is_primary, req.params.id]
-  );
-  res.json({ message: 'Link updated' });
+  try {
+    const { link_title, link_type, url, description, is_primary } = req.body;
+    await db.query(
+      `UPDATE asset_links
+       SET link_title=?, link_type=?, url=?, description=?, is_primary=?
+       WHERE id=?`,
+      [link_title, link_type, url, description, is_primary, req.params.id]
+    );
+    res.json({ message: 'Link updated' });
+  } catch (e) {
+    console.error('[PUT link]', e);
+    res.status(500).json({ error: 'Failed to update link' });
+  }
 });
 
 router.delete('/links/:id', authMiddleware, adminMiddleware, async (req, res) => {
-  await db.query('DELETE FROM asset_links WHERE id=?', [req.params.id]);
-  res.json({ message: 'Link deleted' });
+  try {
+    await db.query('DELETE FROM asset_links WHERE id=?', [req.params.id]);
+    res.json({ message: 'Link deleted' });
+  } catch (e) {
+    console.error('[DELETE link]', e);
+    res.status(500).json({ error: 'Failed to delete link' });
+  }
 });
 
 module.exports = router;
