@@ -240,6 +240,7 @@ export default function Opportunities() {
                 >
                   <option value="Implementation">Implementation</option>
                   <option value="Maintenance">Maintenance</option>
+                  <option value="Oppty">Oppty</option>
                 </select>
               </div>
               <div className="grid grid-cols-2 gap-4">

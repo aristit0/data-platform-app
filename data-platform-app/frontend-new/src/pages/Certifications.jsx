@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react'
-import { certificationsAPI, employeeCertificationsAPI, employeesAPI } from '../services/api'
 import { useAuth } from '../contexts/AuthContext'
 import { Plus, Edit, Trash2, AlertCircle, Search } from 'lucide-react'
+
+// Use the correct API URL - should match your other pages
+const API_BASE_URL = '/api'
 
 export default function Certifications() {
   const [activeTab, setActiveTab] = useState('active')
@@ -67,21 +69,33 @@ export default function Certifications() {
 
   const loadData = async () => {
     try {
+      const token = localStorage.getItem('token')
+      const headers = { 
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json'
+      }
+      
       const year = new Date().getFullYear()
+      
       const [activeRes, planRes, expiringRes, empRes] = await Promise.all([
-        employeeCertificationsAPI.getAll({ status: 'Active' }),
-        certificationsAPI.getAll({ year }),
-        employeeCertificationsAPI.getExpiring(),
-        employeesAPI.getAll(),
+        fetch(`${API_BASE_URL}/employee-certifications?status=Active`, { headers }),
+        fetch(`${API_BASE_URL}/certifications?year=${year}`, { headers }),
+        fetch(`${API_BASE_URL}/employee-certifications/expiring`, { headers }),
+        fetch(`${API_BASE_URL}/employees`, { headers }),
       ])
       
-      setActiveCerts(activeRes.data || [])
-      setPlanCerts(planRes.data || [])
+      const activeData = await activeRes.json()
+      const planData = await planRes.json()
+      const expiringData = await expiringRes.json()
+      const empData = await empRes.json()
+      
+      setActiveCerts(activeData || [])
+      setPlanCerts(planData || [])
       
       // Filter expiring - remove renewed ones
-      const expiring = (expiringRes.data || []).filter(cert => {
+      const expiring = (expiringData || []).filter(cert => {
         if (!cert.end_date) return false
-        return !(activeRes.data || []).some(active => 
+        return !(activeData || []).some(active => 
           active.employee_id === cert.employee_id && 
           active.certification === cert.certification &&
           active.start_date && cert.end_date &&
@@ -90,7 +104,7 @@ export default function Certifications() {
       })
       setExpiringCerts(expiring)
       
-      setEmployees(empRes.data || [])
+      setEmployees(empData || [])
     } catch (err) {
       console.error('Error:', err)
       setActiveCerts([])
@@ -118,6 +132,7 @@ export default function Certifications() {
   const handleActiveSubmit = async (e) => {
     e.preventDefault()
     try {
+      const token = localStorage.getItem('token')
       // Get employee name from dropdown
       const emp = employees.find(e => e.employee_id === activeFormData.employee_id)
       const submitData = {
@@ -125,15 +140,26 @@ export default function Certifications() {
         name: emp ? emp.full_name : activeFormData.name
       }
       
-      if (editing) {
-        await employeeCertificationsAPI.update(editing.cert_id, submitData)
-      } else {
-        await employeeCertificationsAPI.create(submitData)
-      }
+      const url = editing 
+        ? `${API_BASE_URL}/employee-certifications/${editing.cert_id}`
+        : `${API_BASE_URL}/employee-certifications`
+      
+      const response = await fetch(url, {
+        method: editing ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(submitData)
+      })
+      
+      if (!response.ok) throw new Error('Failed to save')
+      
       setShowModal(false)
       resetActiveForm()
       loadData()
     } catch (err) {
+      console.error('Error saving certification:', err)
       alert('Error saving certification')
     }
   }
@@ -155,18 +181,40 @@ export default function Certifications() {
   const handleActiveDelete = async (id) => {
     if (!window.confirm('Delete this certification?')) return
     try {
-      await employeeCertificationsAPI.delete(id)
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/employee-certifications/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (!response.ok) throw new Error('Failed to delete')
+      
       loadData()
     } catch (err) {
+      console.error('Error deleting certification:', err)
       alert('Error deleting certification')
     }
   }
 
   const handleStatusChange = async (id, newStatus) => {
     try {
-      await employeeCertificationsAPI.updateStatus(id, newStatus)
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/employee-certifications/${id}/status`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ status: newStatus })
+      })
+      
+      if (!response.ok) throw new Error('Failed to update status')
+      
       loadData()
     } catch (err) {
+      console.error('Error updating status:', err)
       alert('Error updating status')
     }
   }
@@ -188,16 +236,40 @@ export default function Certifications() {
   const handlePlanSubmit = async (e) => {
     e.preventDefault()
     try {
-      if (editing) {
-        await certificationsAPI.update(editing.plan_id, planFormData)
-      } else {
-        await certificationsAPI.create(planFormData)
+      const token = localStorage.getItem('token')
+      
+      // Prepare data - convert empty strings to empty for backend to handle
+      const submitData = {
+        ...planFormData,
+        schedule_1: planFormData.schedule_1 || '',
+        schedule_2: planFormData.schedule_2 || '',
+        schedule_3: planFormData.schedule_3 || '',
       }
+      
+      const url = editing 
+        ? `${API_BASE_URL}/certifications/${editing.plan_id}`
+        : `${API_BASE_URL}/certifications`
+      
+      const response = await fetch(url, {
+        method: editing ? 'PUT' : 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify(submitData)
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        throw new Error(errorData.error || 'Failed to save')
+      }
+      
       setShowPlanModal(false)
       resetPlanForm()
       loadData()
     } catch (err) {
-      alert('Error saving plan')
+      console.error('Error saving plan:', err)
+      alert(`Error saving plan: ${err.message}`)
     }
   }
 
@@ -222,9 +294,19 @@ export default function Certifications() {
   const handlePlanDelete = async (id) => {
     if (!window.confirm('Delete this plan?')) return
     try {
-      await certificationsAPI.delete(id)
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${API_BASE_URL}/certifications/${id}`, {
+        method: 'DELETE',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      })
+      
+      if (!response.ok) throw new Error('Failed to delete')
+      
       loadData()
     } catch (err) {
+      console.error('Error deleting plan:', err)
       alert('Error deleting plan')
     }
   }

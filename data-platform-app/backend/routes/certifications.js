@@ -80,13 +80,18 @@ router.post('/', authMiddleware, adminMiddleware, async (req, res) => {
       schedule_1, result_1, schedule_2, result_2, schedule_3, result_3, status_final 
     } = req.body;
 
+    // Convert empty strings to NULL for date fields
+    const schedule1 = schedule_1 && schedule_1.trim() !== '' ? schedule_1 : null;
+    const schedule2 = schedule_2 && schedule_2.trim() !== '' ? schedule_2 : null;
+    const schedule3 = schedule_3 && schedule_3.trim() !== '' ? schedule_3 : null;
+
     const [result] = await db.query(
       `INSERT INTO certification_plan 
        (planning_year, planning_quarter, name, certification, schedule_1, result_1, 
         schedule_2, result_2, schedule_3, result_3, status_final) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       [planning_year, planning_quarter, name, certification, 
-       schedule_1, result_1, schedule_2, result_2, schedule_3, result_3, status_final]
+       schedule1, result_1, schedule2, result_2, schedule3, result_3, status_final]
     );
 
     res.status(201).json({ 
@@ -107,6 +112,11 @@ router.put('/:planId', authMiddleware, adminMiddleware, async (req, res) => {
       schedule_1, result_1, schedule_2, result_2, schedule_3, result_3, status_final 
     } = req.body;
 
+    // Convert empty strings to NULL for date fields
+    const schedule1 = schedule_1 && schedule_1.trim() !== '' ? schedule_1 : null;
+    const schedule2 = schedule_2 && schedule_2.trim() !== '' ? schedule_2 : null;
+    const schedule3 = schedule_3 && schedule_3.trim() !== '' ? schedule_3 : null;
+
     await db.query(
       `UPDATE certification_plan 
        SET planning_year = ?, planning_quarter = ?, name = ?, certification = ?, 
@@ -114,7 +124,7 @@ router.put('/:planId', authMiddleware, adminMiddleware, async (req, res) => {
            schedule_3 = ?, result_3 = ?, status_final = ?
        WHERE plan_id = ?`,
       [planning_year, planning_quarter, name, certification, 
-       schedule_1, result_1, schedule_2, result_2, schedule_3, result_3, status_final,
+       schedule1, result_1, schedule2, result_2, schedule3, result_3, status_final,
        req.params.planId]
     );
 

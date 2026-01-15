@@ -1,15 +1,17 @@
 import { Database } from 'lucide-react'
 import { CheckSquare, Package } from 'lucide-react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { 
   LayoutDashboard, Users, Briefcase, Award, 
   FolderKanban, Trophy, Calendar, LogOut, Settings, ChevronLeft, ChevronRight
 } from 'lucide-react'
+import logo from '../assets/logo.png'
 
 export default function Sidebar({ isOpen, onToggle }) {
   const { user, logout } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
 
   const menuItems = [
     { path: '/dashboard', icon: LayoutDashboard, label: 'Dashboard' },
@@ -34,14 +36,31 @@ export default function Sidebar({ isOpen, onToggle }) {
     })
   }
 
+  const handleLogoClick = () => {
+    navigate('/dashboard')
+  }
+
   return (
     <aside className={`fixed left-0 top-0 h-screen bg-dark-800 border-r border-white/10 transition-all duration-300 z-50 ${isOpen ? 'w-64' : 'w-20'}`}>
-      {/* Header */}
-      <div className="p-6 border-b border-white/10">
-        <h1 className={`font-bold bg-gradient-to-r from-primary-500 to-purple-500 bg-clip-text text-transparent transition-all ${isOpen ? 'text-2xl' : 'text-lg text-center'}`}>
-          {isOpen ? 'TOMODACHI' : 'TM'}
-        </h1>
-        {isOpen && <p className="text-sm text-gray-400 mt-1">Data Platform</p>}
+      {/* Header with Logo - Clickable */}
+      <div 
+        className="p-6 border-b border-white/10 cursor-pointer hover:bg-white/5 transition-all"
+        onClick={handleLogoClick}
+        title="Go to Dashboard"
+      >
+        <div className="flex items-center gap-3 mb-2">
+          <img 
+            src={logo} 
+            alt="TOMODACHI Logo" 
+            className={`transition-all ${isOpen ? 'w-10 h-10' : 'w-8 h-8 mx-auto'}`}
+          />
+          {isOpen && (
+            <h1 className="font-bold bg-gradient-to-r from-primary-500 to-purple-500 bg-clip-text text-transparent text-2xl">
+              TOMODACHI
+            </h1>
+          )}
+        </div>
+        {isOpen && <p className="text-sm text-gray-400 mt-1 ml-13">Data Platform</p>}
       </div>
 
       {/* Menu */}
