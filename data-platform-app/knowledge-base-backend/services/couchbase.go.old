@@ -1,0 +1,193 @@
+package services
+
+import (
+    "fmt"
+    "time"
+
+    "github.com/couchbase/gocb/v2"
+    "knowledge-base-backend/models"
+)
+
+type CouchbaseService struct {
+    cluster        *gocb.Cluster
+    collection     *gocb.Collection
+    bucketName     string
+    scopeName      string
+    collectionName string
+}
+
+func NewCouchbaseService(
+    connStr, username, password,
+    bucketName, scopeName, collectionName string,
+) (*CouchbaseService, error) {
+
+    // Exact same pattern as working example
+    options := gocb.ClusterOptions{
+        Authenticator: gocb.PasswordAuthenticator{
+            Username: username,
+            Password: password,
+        },
+    }
+    
+    // Apply WAN profile
+    if err := options.ApplyProfile(gocb.ClusterConfigProfileWanDevelopment); err != nil {
+        return nil, fmt.Errorf("failed to apply WAN profile: %v", err)
+    }
+
+    // Connect
+    cluster, err := gocb.Connect(connStr, options)
+    if err != nil {
+        return nil, fmt.Errorf("connect failed: %v", err)
+    }
+
+    // Get bucket
+    bucket := cluster.Bucket(bucketName)
+    
+    // Wait until ready (30 seconds like working example)
+    if err := bucket.WaitUntilReady(30*time.Second, nil); err != nil {
+        cluster.Close(nil)
+        return nil, fmt.Errorf("bucket not ready: %v", err)
+    }
+
+    // Get collection
+    collection := bucket.Scope(scopeName).Collection(collectionName)
+
+    return &CouchbaseService{
+        cluster:        cluster,
+        collection:     collection,
+        bucketName:     bucketName,
+        scopeName:      scopeName,
+        collectionName: collectionName,
+    }, nil
+}
+
+func (s *CouchbaseService) SaveDocument(doc *models.Document) error {
+    _, err := s.collection.Upsert(doc.ID, doc, nil)
+    if err != nil {
+        return fmt.Errorf("failed to save document: %v", err)
+    }
+    return nil
+}
+
+func (s *CouchbaseService) GetDocument(id string) (*models.Document, error) {
+    result, err := s.collection.Get(id, nil)
+    if err != nil {
+        return nil, fmt.Errorf("failed to get document: %v", err)
+    }
+
+    var doc models.Document
+    err = result.Content(&doc)
+    if err != nil {
+        return nil, fmt.Errorf("failed to decode document: %v", err)
+    }
+
+    return &doc, nil
+}
+
+func (s *CouchbaseService) SearchDocuments(query string, product, subProduct, category string) ([]models.Document, error) {
+    n1qlQuery := fmt.Sprintf(`
+        SELECT d.* FROM %s.%s.%s d
+        WHERE (
+            LOWER(d.file_name) LIKE $1
+            OR LOWER(d.original_name) LIKE $1
+            OR LOWER(d.parsed_text) LIKE $1
+            OR ANY keyword IN d.keywords SATISFIES LOWER(keyword) LIKE $1 END
+            OR ANY error IN d.error_messages SATISFIES LOWER(error) LIKE $1 END
+        )
+    `, "`"+s.bucketName+"`", "`"+s.scopeName+"`", "`"+s.collectionName+"`")
+
+    params := []interface{}{
+        fmt.Sprintf("%%%s%%", query),
+    }
+
+    if product != "" {
+        n1qlQuery += " AND d.product = $" + fmt.Sprintf("%d", len(params)+1)
+        params = append(params, product)
+    }
+    if subProduct != "" {
+        n1qlQuery += " AND d.sub_product = $" + fmt.Sprintf("%d", len(params)+1)
+        params = append(params, subProduct)
+    }
+    if category != "" {
+        n1qlQuery += " AND d.category = $" + fmt.Sprintf("%d", len(params)+1)
+        params = append(params, category)
+    }
+
+    n1qlQuery += " ORDER BY d.uploaded_at DESC LIMIT 100"
+
+    results, err := s.cluster.Query(n1qlQuery, &gocb.QueryOptions{
+        PositionalParameters: params,
+    })
+    if err != nil {
+        return nil, fmt.Errorf("failed to execute query: %v", err)
+    }
+
+    var documents []models.Document
+    for results.Next() {
+        var doc models.Document
+        err := results.Row(&doc)
+        if err != nil {
+            continue
+        }
+        documents = append(documents, doc)
+    }
+
+    if err := results.Err(); err != nil {
+        return nil, fmt.Errorf("query iteration error: %v", err)
+    }
+
+    return documents, nil
+}
+
+func (s *CouchbaseService) ListDocumentsByPath(product, subProduct, category string) ([]models.Document, error) {
+    n1qlQuery := fmt.Sprintf(`
+        SELECT d.* FROM %s.%s.%s d
+        WHERE 1=1
+    `, "`"+s.bucketName+"`", "`"+s.scopeName+"`", "`"+s.collectionName+"`")
+
+    var params []interface{}
+    
+    if product != "" {
+        n1qlQuery += " AND d.product = $" + fmt.Sprintf("%d", len(params)+1)
+        params = append(params, product)
+    }
+    if subProduct != "" {
+        n1qlQuery += " AND d.sub_product = $" + fmt.Sprintf("%d", len(params)+1)
+        params = append(params, subProduct)
+    }
+    if category != "" {
+        n1qlQuery += " AND d.category = $" + fmt.Sprintf("%d", len(params)+1)
+        params = append(params, category)
+    }
+
+    n1qlQuery += " ORDER BY d.uploaded_at DESC"
+
+    results, err := s.cluster.Query(n1qlQuery, &gocb.QueryOptions{
+        PositionalParameters: params,
+    })
+    if err != nil {
+        return nil, fmt.Errorf("failed to execute query: %v", err)
+    }
+
+    var documents []models.Document
+    for results.Next() {
+        var doc models.Document
+        err := results.Row(&doc)
+        if err != nil {
+            continue
+        }
+        documents = append(documents, doc)
+    }
+
+    if err := results.Err(); err != nil {
+        return nil, fmt.Errorf("query iteration error: %v", err)
+    }
+
+    return documents, nil
+}
+
+func (s *CouchbaseService) Close() {
+    if s.cluster != nil {
+        s.cluster.Close(nil)
+    }
+}

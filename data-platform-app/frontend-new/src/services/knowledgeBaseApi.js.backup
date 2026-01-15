@@ -1,0 +1,78 @@
+import axios from 'axios';
+
+// NEW: Gunakan prefix /kb-api agar proxy ke port 2222
+const API_BASE_URL = '/kb-api';
+
+// Get JWT token from localStorage
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return {
+    Authorization: `Bearer ${token}`,
+  };
+};
+
+export const knowledgeBaseApi = {
+  // Upload document
+  uploadDocument: async (file, product, subProduct, category) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('product', product);
+    formData.append('sub_product', subProduct);
+    formData.append('category', category);
+
+    const response = await axios.post(`${API_BASE_URL}/upload`, formData, {
+      headers: {
+        ...getAuthHeaders(),
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+    return response.data;
+  },
+
+  // Search documents
+  searchDocuments: async (query, filters = {}) => {
+    const params = new URLSearchParams({ q: query });
+    
+    if (filters.product) params.append('product', filters.product);
+    if (filters.subProduct) params.append('sub_product', filters.subProduct);
+    if (filters.category) params.append('category', filters.category);
+
+    const response = await axios.get(`${API_BASE_URL}/search?${params}`, {
+      headers: getAuthHeaders(),
+    });
+    return response.data;
+  },
+
+  // List documents by path
+  listDocuments: async (path = '') => {
+    const response = await axios.get(`${API_BASE_URL}/documents`, {
+      params: { path },
+      headers: getAuthHeaders(),
+    });
+    return response.data;
+  },
+
+  // Get document details
+  getDocument: async (id) => {
+    const response = await axios.get(`${API_BASE_URL}/documents/${id}`, {
+      headers: getAuthHeaders(),
+    });
+    return response.data;
+  },
+};
+```
+
+## Flow Request
+
+### Existing Backend (Tetap Tidak Berubah)
+```
+Frontend → /api/users → Vite Proxy → http://localhost:2221/api/users
+Frontend → /api/tasks → Vite Proxy → http://localhost:2221/api/tasks
+Frontend → /api/leaves → Vite Proxy → http://localhost:2221/api/leaves
+```
+
+### New Knowledge Base Backend
+```
+Frontend → /kb-api/upload → Vite Proxy (rewrite) → http://localhost:2222/api/upload
+Frontend → /kb-api/search → Vite Proxy (rewrite) → http://localhost:2222/api/search
+Frontend → /kb-api/documents → Vite Proxy (rewrite) → http://localhost:2222/api/documents

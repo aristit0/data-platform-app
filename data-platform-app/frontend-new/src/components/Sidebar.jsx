@@ -25,6 +25,7 @@ export default function Sidebar({ isOpen, onToggle }) {
     { path: '/mini-pocs', icon: Trophy, label: 'Mini POCs' },
     { path: '/leaves', icon: Calendar, label: 'Leave Management' },
     { path: '/tasks', label: 'Task Management', icon: CheckSquare },
+    { path: '/knowledge-base', label: 'Knowledge Based', icon: CheckSquare },
   ]
 
   // Add User Management for admin

@@ -1,0 +1,92 @@
+package main
+
+import (
+    "log"
+    "os"
+
+    "github.com/gin-gonic/gin"
+    "knowledge-base-backend/config"
+    "knowledge-base-backend/handlers"
+    "knowledge-base-backend/middleware"
+    "knowledge-base-backend/services"
+    "knowledge-base-backend/worker"
+)
+
+func main() {
+    cfg := config.LoadConfig()
+    middleware.SetJWTSecret(cfg.JWTSecret)
+
+    if _, err := os.Stat(cfg.GCSCredentialsPath); os.IsNotExist(err) {
+        log.Printf("Warning: GCS credentials file not found at %s", cfg.GCSCredentialsPath)
+    } else {
+        log.Printf("Using GCS credentials from: %s", cfg.GCSCredentialsPath)
+    }
+
+    gcsService, err := services.NewGCSService(
+        cfg.GCSProjectID,
+        cfg.GCSBucketName,
+        cfg.GCSCredentialsPath,
+    )
+    if err != nil {
+        log.Fatalf("Failed to initialize GCS service: %v", err)
+    }
+    defer gcsService.Close()
+
+    log.Println("Connecting to Couchbase...")
+    couchbaseService, err := services.NewCouchbaseService(
+        "couchbases://cb.6mhtjxyi5juqnmgr.cloud.couchbase.com",
+        "aris",
+        "T1ku$H1t4m",
+        "knowledge_based",
+        "master_document",
+        "document",
+    )
+    if err != nil {
+        log.Fatalf("Failed to connect to Couchbase: %v", err)
+    }
+    defer couchbaseService.Close()
+    log.Println("✅ Couchbase connected successfully!")
+
+    parserWorker := worker.NewParserWorker(
+        cfg.WorkerChannelSize,
+        gcsService,
+        couchbaseService,
+    )
+    parserWorker.Start(3)
+
+    uploadHandler := handlers.NewUploadHandler(gcsService, couchbaseService, parserWorker)
+    searchHandler := handlers.NewSearchHandler(couchbaseService)
+    documentsHandler := handlers.NewDocumentsHandler(gcsService, couchbaseService)
+
+    r := gin.Default()
+    r.MaxMultipartMemory = 100 << 20
+    r.Use(middleware.CORSMiddleware())
+
+    r.GET("/health", func(c *gin.Context) {
+        c.JSON(200, gin.H{"status": "ok"})
+    })
+
+    isDev := os.Getenv("ENV") == "development" || os.Getenv("ENV") == ""
+
+    api := r.Group("/api")
+    if !isDev {
+        api.Use(middleware.AuthMiddleware())
+        log.Println("Running in PRODUCTION mode - Auth enabled")
+    } else {
+        log.Println("Running in DEVELOPMENT mode - Auth disabled")
+    }
+
+    {
+        api.POST("/upload", uploadHandler.Upload)
+        api.GET("/search", searchHandler.Search)
+        api.GET("/documents", documentsHandler.ListDocuments)
+        api.GET("/documents/:id", documentsHandler.GetDocument)
+        api.GET("/documents/:id/download", documentsHandler.DownloadDocument)
+        api.DELETE("/documents/:id", documentsHandler.DeleteDocument)
+    }
+
+    log.Printf("Server starting on port %s...", cfg.ServerPort)
+    if err := r.Run(":" + cfg.ServerPort); err != nil {
+        log.Fatalf("Failed to start server: %v", err)
+    }
+}
