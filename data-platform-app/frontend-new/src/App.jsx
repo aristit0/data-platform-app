@@ -1,6 +1,8 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
 import Login from './pages/Login'
+import VerifyEmail from './pages/VerifyEmail'
+import ResetPassword from './pages/ResetPassword'
 import Dashboard from './pages/Dashboard'
 import Employees from './pages/Employees'
 import UserManagement from './pages/UserManagement'
@@ -12,7 +14,7 @@ import MiniPOCs from './pages/MiniPOCs'
 import LeaveManagement from './pages/LeaveManagement'
 import TaskManagement from './pages/TaskManagement'
 import Layout from './components/Layout'
-import ProductSpecialists from './pages/ProductSpecialists';
+import ProductSpecialists from './pages/ProductSpecialists'
 import Assets from './pages/Assets'
 
 function App() {
@@ -20,7 +22,12 @@ function App() {
     <AuthProvider>
       <Router>
         <Routes>
+          {/* Auth Routes */}
           <Route path="/login" element={<Login />} />
+          <Route path="/verify-email" element={<VerifyEmail />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+          
+          {/* Protected Routes */}
           <Route path="/" element={<Layout />}>
             <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
@@ -33,7 +40,7 @@ function App() {
             <Route path="mini-pocs" element={<MiniPOCs />} />
             <Route path="leaves" element={<LeaveManagement />} />
             <Route path="tasks" element={<TaskManagement />} />
-	    <Route path="/product-specialists" element={<ProductSpecialists />} />
+            <Route path="/product-specialists" element={<ProductSpecialists />} />
             <Route path="/assets" element={<Assets />} />
           </Route>
         </Routes>
