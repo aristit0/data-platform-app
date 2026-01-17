@@ -607,8 +607,50 @@ router.put('/users/:userId/approve', authMiddleware, adminMiddleware, async (req
   }
 });
 
-// Get all users (admin only)
-router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
+// Get all users (for forum member selection - ALL AUTHENTICATED)
+router.get('/users', authMiddleware, async (req, res) => {
+  try {
+    const { status } = req.query;
+    
+    let query = `
+      SELECT 
+        user_id,
+        email,
+        full_name,
+        role,
+        email_verified,
+        status as approval_status,
+        created_at
+      FROM users
+      WHERE 1=1
+    `;
+    const params = [];
+
+    // Filter by status if provided
+    if (status === 'active') {
+      query += ' AND email_verified = 1 AND status = "approved"';
+    } else if (status === 'pending') {
+      query += ' AND email_verified = 1 AND status = "pending"';
+    } else if (status === 'unverified') {
+      query += ' AND email_verified = 0';
+    }
+
+    query += ' ORDER BY full_name ASC';
+
+    const [users] = await db.query(query, params);
+    
+    res.json(users);
+  } catch (error) {
+    console.error('Error fetching users:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch users',
+      message: error.message 
+    });
+  }
+});
+
+// Get all users (admin only - for user management)
+router.get('/users/admin/all', authMiddleware, adminMiddleware, async (req, res) => {
   try {
     const [users] = await db.query(
       `SELECT user_id, email, full_name, role, status, email_verified, created_at 
@@ -619,6 +661,39 @@ router.get('/users', authMiddleware, adminMiddleware, async (req, res) => {
   } catch (error) {
     console.error('Error fetching users:', error);
     res.status(500).json({ error: 'Failed to fetch users' });
+  }
+});
+
+// Get user by ID
+router.get('/users/:userId', authMiddleware, async (req, res) => {
+  try {
+    const [user] = await db.query(
+      `SELECT 
+        user_id,
+        email,
+        full_name,
+        role,
+        email_verified,
+        status as approval_status,
+        created_at
+      FROM users 
+      WHERE user_id = ?`,
+      [req.params.userId]
+    );
+    
+    if (user.length === 0) {
+      return res.status(404).json({ 
+        error: 'User not found' 
+      });
+    }
+    
+    res.json(user[0]);
+  } catch (error) {
+    console.error('Error fetching user:', error);
+    res.status(500).json({ 
+      error: 'Failed to fetch user',
+      message: error.message 
+    });
   }
 });
 
@@ -653,5 +728,4 @@ router.put('/users/:userId/role', authMiddleware, adminMiddleware, async (req, r
     res.status(500).json({ error: 'Failed to update user role' });
   }
 });
-
 module.exports = router;

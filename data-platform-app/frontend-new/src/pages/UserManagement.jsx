@@ -16,18 +16,29 @@ export default function UserManagement() {
   const loadData = async () => {
     try {
       setLoading(true)
-      const [approvedRes, pendingRes] = await Promise.all([
-        authAPI.getUsers(),
-        authAPI.getPendingUsers(),
-      ])
+      setError('')
       
-      // Separate approved and rejected users
-      const approved = approvedRes.data.filter(u => u.status === 'approved')
+      // Fetch approved users with status=active
+      const approvedRes = await authAPI.getUsers()
+      console.log('Approved users response:', approvedRes.data)
+      
+      // Fetch pending users with status=pending
+      const pendingRes = await authAPI.getPendingUsers()
+      console.log('Pending users response:', pendingRes.data)
+      
+      // Filter approved users (status === 'approved')
+      const approved = Array.isArray(approvedRes.data) 
+        ? approvedRes.data.filter(u => u.approval_status === 'approved')
+        : []
+      
       setApprovedUsers(approved)
-      setPendingUsers(pendingRes.data)
+      setPendingUsers(Array.isArray(pendingRes.data) ? pendingRes.data : [])
+      
+      console.log('Approved users count:', approved.length)
+      console.log('Pending users count:', pendingRes.data?.length || 0)
     } catch (err) {
-      setError('Failed to load users')
       console.error('Error loading users:', err)
+      setError('Failed to load users: ' + (err.response?.data?.message || err.message))
     } finally {
       setLoading(false)
     }
@@ -40,7 +51,8 @@ export default function UserManagement() {
       setTimeout(() => setSuccess(''), 3000)
       loadData()
     } catch (err) {
-      setError('Failed to update user status')
+      console.error('Error updating user status:', err)
+      setError('Failed to update user status: ' + (err.response?.data?.message || err.message))
       setTimeout(() => setError(''), 3000)
     }
   }
@@ -52,7 +64,8 @@ export default function UserManagement() {
       setTimeout(() => setSuccess(''), 3000)
       loadData()
     } catch (err) {
-      setError('Failed to update user role')
+      console.error('Error updating user role:', err)
+      setError('Failed to update user role: ' + (err.response?.data?.message || err.message))
       setTimeout(() => setError(''), 3000)
     }
   }

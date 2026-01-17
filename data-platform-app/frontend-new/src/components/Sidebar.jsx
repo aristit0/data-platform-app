@@ -1,5 +1,5 @@
 import { Database } from 'lucide-react'
-import { CheckSquare, Package } from 'lucide-react'
+import { CheckSquare, Package, MessageSquare } from 'lucide-react'  // ADD MessageSquare
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import { 
@@ -25,7 +25,8 @@ export default function Sidebar({ isOpen, onToggle }) {
     { path: '/mini-pocs', icon: Trophy, label: 'Mini POCs' },
     { path: '/leaves', icon: Calendar, label: 'Leave Management' },
     { path: '/tasks', label: 'Task Management', icon: CheckSquare },
-    { path: '/knowledge-base', label: 'Knowledge Based', icon: CheckSquare },
+    { path: '/knowledge-base', label: 'Knowledge Base', icon: CheckSquare },
+    { path: '/forum-chat', label: 'Forum Chat', icon: MessageSquare },  // ADD THIS
   ]
 
   // Add User Management for admin

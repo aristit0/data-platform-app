@@ -16,7 +16,8 @@ import TaskManagement from './pages/TaskManagement'
 import Layout from './components/Layout'
 import ProductSpecialists from './pages/ProductSpecialists'
 import Assets from './pages/Assets'
-import KnowledgeBase from './pages/KnowledgeBase';
+import KnowledgeBase from './pages/KnowledgeBase'
+import ForumChat from './pages/ForumChat'  // ADD THIS
 
 function App() {
   return (
@@ -41,9 +42,10 @@ function App() {
             <Route path="mini-pocs" element={<MiniPOCs />} />
             <Route path="leaves" element={<LeaveManagement />} />
             <Route path="tasks" element={<TaskManagement />} />
-            <Route path="/product-specialists" element={<ProductSpecialists />} />
-            <Route path="/assets" element={<Assets />} />
-            <Route path="/knowledge-base" element={<KnowledgeBase />} />
+            <Route path="product-specialists" element={<ProductSpecialists />} />
+            <Route path="assets" element={<Assets />} />
+            <Route path="knowledge-base" element={<KnowledgeBase />} />
+            <Route path="forum-chat" element={<ForumChat />} />  {/* ADD THIS */}
           </Route>
         </Routes>
       </Router>

@@ -2,6 +2,31 @@ import axios from 'axios'
 
 const API_BASE_URL = '/api'
 
+
+
+
+
+
+// Users API - FIXED VERSION (using api instance with auth)
+export const usersAPI = {
+  // Get all users (default: only active users)
+  getAll: (status = 'active') => {
+    return api.get('/auth/users', { params: { status } });
+  },
+
+  // Get user by ID
+  getById: (userId) => {
+    return api.get(`/auth/users/${userId}`);
+  },
+
+  // Get all active and approved users (untuk forum members)
+  getActiveUsers: () => {
+    return api.get('/auth/users', { params: { status: 'active' } });
+  }
+};
+
+
+
 const api = axios.create({
   baseURL: API_BASE_URL,
   timeout: 30000,
@@ -23,6 +48,9 @@ api.interceptors.request.use(
     return Promise.reject(error)
   }
 )
+
+
+
 
 // Handle response errors
 api.interceptors.response.use(
